@@ -1,0 +1,13 @@
+# Rojo generiert diese Datei aus dem Projekt neu — nicht versionieren.
+sourcemap.json
+
+# Roblox Studio Platzdateien — falls mal eine hier landet (z.B. zum Testen),
+# gehört sie nicht ins Repo, meist zu groß und binär, schlecht diff-bar.
+*.rbxl
+*.rbxlx
+*.rbxlx.lock
+
+# Übliche Betriebssystem-/Editor-Müllstore.
+.DS_Store
+Thumbs.db
+.vscode/
