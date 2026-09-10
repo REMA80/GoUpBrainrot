@@ -129,6 +129,11 @@ end
 -- placeholder-0-means-not-configured convention as the others above.
 local rebirthProductId = GameConfig.Rebirth.RobuxProduct.ProductId
 
+-- The "Willkommen zurück"-Popup's "Verdoppeln" button (see GameConfig.
+-- OfflineEarnings.DoubleRobuxProduct / EconomyService.DoubleOfflineEarnings) —
+-- same placeholder-0-means-not-configured convention as the others above.
+local offlineDoubleProductId = GameConfig.OfflineEarnings.DoubleRobuxProduct.ProductId
+
 -- 2x Cash / 4x Cash / Auto-Sammeln (see GameConfig.Gamepasses' own big
 -- comment, and MonetizationService.OwnsDoubleCash/OwnsQuadCash/
 -- OwnsAutoCollect above) — these three are Developer Products, so unlike a
@@ -215,6 +220,8 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 	elseif autoCollectProductId > 0 and receiptInfo.ProductId == autoCollectProductId then
 		data.OwnsAutoCollect = true
 		EconomyService.FireDataUpdated(player)
+	elseif offlineDoubleProductId > 0 and receiptInfo.ProductId == offlineDoubleProductId then
+		EconomyService.DoubleOfflineEarnings(player)
 	end
 	-- An unrecognized ProductId (e.g. a product removed from GameConfig
 	-- after being purchased) still gets marked granted below rather than

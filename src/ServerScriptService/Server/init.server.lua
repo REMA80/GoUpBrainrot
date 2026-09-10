@@ -129,6 +129,19 @@ newRemoteEvent("WheelSpinResult") -- -> client: {SegmentIndex, Message} — fire
 -- === Fast-Travel remote (see BaseService.lua's buildFastTravelKiosk / FastTravelService.lua) ===
 newRemoteEvent("RequestFastTravelPanel") -- -> client: (no payload — the panel reads lastData.HighestFloor, already pushed on every DataUpdated, same "no extra fetch needed" pattern as RequestJumpUpgradePanel). Fired when a player interacts with the shared Fast-Travel kiosk.
 
+-- === Offline-earnings remotes (see GameConfig.OfflineEarnings / EconomyService.
+-- ComputeOfflineEarnings/ClaimOfflineEarnings/DoubleOfflineEarnings) ============
+newRemoteEvent("ShowOfflineEarnings") -- -> client: {Amount, OfflineSeconds, RatePerSecond, RateFraction, DoubleProductId} — fired once right after join if there's enough to show (see ComputeOfflineEarnings)
+local claimOfflineEarningsFn = newRemoteFunction("ClaimOfflineEarnings") -- player -> amount granted (0 if nothing pending) — the popup's "Abholen" button
+-- The "Verdoppeln" button doesn't need its own request event — the client
+-- already has DoubleProductId from ShowOfflineEarnings above and calls
+-- MarketplaceService:PromptProductPurchase directly, same as every other
+-- Robux button in this game. This ONE event is the other direction: the
+-- purchase resolves out of band (MonetizationService.ProcessReceipt), so the
+-- client needs to be told when it's actually done, same reasoning as the
+-- Glücksrad's WheelSpinResult.
+newRemoteEvent("OfflineEarningsDoubled") -- -> client: {Amount} — the final DOUBLED amount actually granted
+
 -- === Leaderboard panel remotes (see LeaderboardService.lua's BuildBoard/
 -- GetPanelData) ==================================================================
 -- On request ("die Bestenliste hat Bilder der Spieler und man kann von Top1
@@ -294,6 +307,10 @@ end
 -- same shape as rebirthFn's own handler above.
 confirmSellCreatureFn.OnServerInvoke = function(player, slotIndex)
 	return CreatureService.SellCreature(player, slotIndex)
+end
+
+claimOfflineEarningsFn.OnServerInvoke = function(player)
+	return EconomyService.ClaimOfflineEarnings(player)
 end
 
 setJumpHeightFractionFn.OnServerInvoke = function(player, fraction)
@@ -801,6 +818,13 @@ Players.PlayerAdded:Connect(function(player)
 	BaseService.RefreshBase(player)
 
 	EconomyService.FireDataUpdated(player)
+
+	-- "Willkommen zurück"-Popup, wenn genug Zeit seit dem letzten Save
+	-- vergangen ist (siehe GameConfig.OfflineEarnings) — AFTER the base/
+	-- pedestals are already built above (BaseService.RefreshBase), so the
+	-- Cash/sec rate this computes from reflects the player's real creatures,
+	-- not an empty base.
+	EconomyService.ComputeOfflineEarnings(player)
 
 	-- Push this player's current Rebirths/LifetimeCashEarned into the
 	-- global leaderboard right away instead of waiting up to

@@ -482,6 +482,53 @@ ui.SellConfirmNo.Activated:Connect(function()
 	ui.SellConfirmSlotIndex = nil
 end)
 
+-- === Offline-earnings popup ("Willkommen zurück", see GameConfig.OfflineEarnings) ===
+-- Fired once right after join if EconomyService.ComputeOfflineEarnings found
+-- enough Cash to be worth showing — info = {Amount, OfflineSeconds,
+-- RatePerSecond, RateFraction, DoubleProductId}.
+remotes.ShowOfflineEarnings.OnClientEvent:Connect(function(info)
+	if not info then
+		return
+	end
+	UIBuilder.ShowOfflineEarnings(ui, info)
+end)
+
+-- "Abholen" — pays out the plain (non-doubled) amount via a direct
+-- RemoteFunction call, same "ask and get the real result back" shape as
+-- ConfirmSellCreature above (not fire-and-forget — the popup needs to know
+-- exactly how much actually got granted for the toast, in case it was
+-- already 0 from a stale double-click).
+ui.OfflineEarningsClaimButton.Activated:Connect(function()
+	SoundPlayer.Play("ButtonClick")
+	UIBuilder.HideOfflineEarnings(ui)
+	local amount = remotes.ClaimOfflineEarnings:InvokeServer()
+	if amount and amount > 0 then
+		UIBuilder.ShowOfflineEarningsToast(ui, amount)
+	end
+end)
+
+-- "Verdoppeln (X Robux)" — same "read the ProductId Attribute UIBuilder.
+-- Build already attached, prompt directly" pattern as the Jump Upgrade Robux
+-- buttons. Deliberately does NOT hide the popup or invoke ClaimOfflineEarnings
+-- here — the purchase resolves asynchronously via MarketplaceService.
+-- ProcessReceipt (server-side), which then fires OfflineEarningsDoubled below
+-- once it's actually done; if the player cancels the purchase prompt instead,
+-- the popup just stays open exactly as it was, "Abholen" still works normally.
+ui.OfflineEarningsDoubleButton.Activated:Connect(function()
+	SoundPlayer.Play("ButtonClick")
+	local productId = ui.OfflineEarningsDoubleButton:GetAttribute("ProductId")
+	if productId then
+		MarketplaceService:PromptProductPurchase(player, productId)
+	end
+end)
+
+remotes.OfflineEarningsDoubled.OnClientEvent:Connect(function(payload)
+	UIBuilder.HideOfflineEarnings(ui)
+	if payload and payload.Amount and payload.Amount > 0 then
+		UIBuilder.ShowOfflineEarningsToast(ui, payload.Amount)
+	end
+end)
+
 -- === Brainrot-Dex (see UIBuilder's DexButton/DexOverlay) =======================
 -- Fetches the current discovery list fresh from the server every time the
 -- panel is opened (a RemoteFunction call, not part of the frequent

@@ -143,6 +143,122 @@ function EconomyService.Init(deps)
 	remotesFolder = deps.Remotes
 end
 
+-- === Offline earnings ("Willkommen zurück"-Popup) =============================
+-- [player] = Cash amount computed by ComputeOfflineEarnings below, still
+-- sitting unclaimed until ClaimOfflineEarnings or DoubleOfflineEarnings pays
+-- it out. Deliberately in-memory only (same reasoning as doubleCashBuffUntil
+-- above) — if a player disconnects before ever claiming it, the NEXT join's
+-- ComputeOfflineEarnings just recomputes fresh from data.LastSeenAt, so
+-- nothing is lost, it just gets folded into the next popup's total instead.
+local pendingOfflineEarnings = {}
+
+-- Called once, right after a player's data is loaded and their base/pedestals
+-- exist (see init.server.lua's PlayerAdded, right after the first
+-- FireDataUpdated — so GetCreatureCashRates below already sees their real
+-- CreatureLog). Works out how long they were away since data.LastSeenAt (set
+-- by PlayerDataManager.Save every time it runs), converts that into Cash at
+-- GameConfig.OfflineEarnings.RateFraction of their current Cash/sec rate, and
+-- — if it's worth showing at all — stashes it in pendingOfflineEarnings and
+-- fires ShowOfflineEarnings so the client can display the popup (see
+-- UIBuilder.ShowOfflineEarnings / init.client.lua's listener).
+--
+-- data.LastSeenAt == 0 (a brand-new player, or an old save from before this
+-- field existed — PlayerDataManager's backfill sets it to the DEFAULT_DATA
+-- value of 0) deliberately shows NOTHING rather than treating "never saved"
+-- as an enormous offline gap.
+function EconomyService.ComputeOfflineEarnings(player)
+	local cfg = GameConfig.OfflineEarnings
+	if not cfg.Enabled then
+		return
+	end
+
+	local data = PlayerDataManager.Get(player)
+	if not data or not data.LastSeenAt or data.LastSeenAt <= 0 then
+		return
+	end
+
+	local elapsedSeconds = os.time() - data.LastSeenAt
+	if elapsedSeconds < cfg.MinSecondsToShow then
+		return
+	end
+
+	local cappedSeconds = math.min(elapsedSeconds, cfg.MaxSeconds)
+	local _, cashPerSecond = EconomyService.GetCreatureCashRates(player)
+	local amount = math.floor((cashPerSecond or 0) * cappedSeconds * cfg.RateFraction + 0.5)
+	if amount <= 0 then
+		return
+	end
+
+	pendingOfflineEarnings[player] = amount
+
+	if remotesFolder then
+		remotesFolder.ShowOfflineEarnings:FireClient(player, {
+			Amount = amount,
+			OfflineSeconds = cappedSeconds,
+			RatePerSecond = cashPerSecond,
+			RateFraction = cfg.RateFraction,
+			DoubleProductId = cfg.DoubleRobuxProduct.ProductId,
+		})
+	end
+end
+
+-- "Abholen" button — pays out whatever's currently pending for `player` at
+-- face value (no doubling) and clears it. Returns the amount granted (0 if
+-- nothing was pending, e.g. a stale/duplicate click after the popup already
+-- closed). Called from the ClaimOfflineEarnings RemoteFunction, see
+-- init.server.lua.
+function EconomyService.ClaimOfflineEarnings(player)
+	local amount = pendingOfflineEarnings[player]
+	if not amount or amount <= 0 then
+		return 0
+	end
+	local data = PlayerDataManager.Get(player)
+	if not data then
+		return 0
+	end
+
+	pendingOfflineEarnings[player] = nil
+	data.Cash += amount
+	data.LifetimeCashEarned = (data.LifetimeCashEarned or 0) + amount
+	EconomyService.FireDataUpdated(player)
+
+	return amount
+end
+
+-- "Verdoppeln (Robux)" button — called from MonetizationService.ProcessReceipt
+-- once the GameConfig.OfflineEarnings.DoubleRobuxProduct purchase is
+-- confirmed. Pays out DOUBLE whatever was pending and clears it, same as
+-- ClaimOfflineEarnings but at 2x — if nothing was pending anymore (e.g. the
+-- player already clicked "Abholen" first, or the popup expired), this simply
+-- grants nothing extra; the Robux purchase still gets marked Granted by
+-- ProcessReceipt regardless (same "already-charged, nothing left to do"
+-- reasoning as its other branches). Fires OfflineEarningsDoubled (not just
+-- the usual FireDataUpdated) so the client can close the popup and show the
+-- final doubled amount even though this resolves asynchronously, out of band
+-- from any button click — same reasoning as WheelService's WheelSpinResult.
+function EconomyService.DoubleOfflineEarnings(player)
+	local amount = pendingOfflineEarnings[player]
+	if not amount or amount <= 0 then
+		return 0
+	end
+	local data = PlayerDataManager.Get(player)
+	if not data then
+		return 0
+	end
+
+	pendingOfflineEarnings[player] = nil
+	local doubled = amount * 2
+	data.Cash += doubled
+	data.LifetimeCashEarned = (data.LifetimeCashEarned or 0) + doubled
+	EconomyService.FireDataUpdated(player)
+
+	if remotesFolder then
+		remotesFolder.OfflineEarningsDoubled:FireClient(player, { Amount = doubled })
+	end
+
+	return doubled
+end
+
 -- Combined jump-tier curve: the original 10 hand-tuned Floor 1-100
 -- checkpoints (GameConfig.JumpTiers, UNTOUCHED — see that table's own
 -- comments) followed directly by the 10 new Prestige-Turm checkpoints
@@ -250,27 +366,73 @@ local function rawSinglePointCost(pointsAlready)
 	return firstPointCost * (ratio ^ indexWithinSegment)
 end
 
--- Monotonicity clamp ("Monotonie-Sperre", on request) — built ONCE at
--- module load, same pattern as ALL_JUMP_TIERS above. Walks every point from
--- 0 to TOTAL_JUMP_POINTS-1 and keeps a running maximum of rawSinglePointCost,
--- so MONOTONIC_POINT_COST[p] is never lower than MONOTONIC_POINT_COST[p-1] —
--- price can now only ever stay flat or go up as you buy more points, never
--- back down across a tier boundary. This only raises prices for the first
--- few points right after a tier boundary (up to whatever the previous
--- segment's peak was); it never lowers any price versus the raw formula, and
--- every segment's OWN total-cost guarantee (buying all PointsPerTier points
--- of one segment still costs that segment's exact ALL_JUMP_TIERS[...].Cost *
--- CostMultiplier) still holds for points that weren't raised, i.e. every
--- segment except the few points right after a boundary.
+-- Monotonicity fix ("Monotonie-Sperre") — built ONCE at module load, same
+-- pattern as ALL_JUMP_TIERS above. The raw per-segment curve dips below the
+-- previous segment's peak right after most tier boundaries (e.g. segment 6
+-- starts at point 100 needing ~161K, but segment 5 just ended at point 99
+-- costing ~1.04M) — left alone, that would mean paying LESS for the next
+-- point after a big purchase, reported as a bug on 2026-09-09 ("+10 Sprung
+-- wird bei mehr Fortschritt günstiger").
+--
+-- A first version of this fix just FROZE the price at the previous peak
+-- until the raw curve climbed back past it — simple, and technically
+-- monotonic (never decreasing), but at some boundaries the raw curve takes
+-- a long time to catch back up: reported as a NEW bug on 2026-09-10 ("bei
+-- dem Sprung Händler von 104-106 den selben Preis 1,0M", confirmed via
+-- screenshot to run points 100-113, 14 purchases in a row at the identical
+-- price). Every one of the 9 tier boundaries has some version of this dip,
+-- just usually a much shorter one.
+--
+-- This version instead bridges each such dip with a smooth GEOMETRIC ramp
+-- from the previous peak up to wherever the raw curve naturally exceeds it
+-- again, so every point still costs strictly more than the last (still
+-- monotonic) but no two consecutive purchases ever show the exact same
+-- price. Total cost across the whole curve barely moves versus the old
+-- freeze (~+1.7% in a spot check) — this only smooths OUT a flat plateau,
+-- it doesn't raise prices beyond what the freeze already did.
 local MONOTONIC_POINT_COST = {}
 do
 	local runningMax = 0
-	for p = 0, TOTAL_JUMP_POINTS - 1 do
+	local p = 0
+	while p < TOTAL_JUMP_POINTS do
 		local raw = rawSinglePointCost(p)
-		if raw > runningMax then
+		if raw >= runningMax then
+			MONOTONIC_POINT_COST[p] = raw
 			runningMax = raw
+			p += 1
+		else
+			-- Dip region: raw cost stays below the previous peak
+			-- (startValue) for one or more points. Find `catchUp`, the
+			-- next point (if any) whose OWN raw cost has climbed back up
+			-- to/past startValue on its own — the ramp bridges evenly from
+			-- startValue at `p` to that point's raw cost, geometrically,
+			-- so it lands exactly back on the natural curve once it
+			-- catches up, instead of ramping forever.
+			local regionStart = p
+			local startValue = runningMax
+			local catchUp = p
+			while catchUp < TOTAL_JUMP_POINTS and rawSinglePointCost(catchUp) < startValue do
+				catchUp += 1
+			end
+
+			if catchUp >= TOTAL_JUMP_POINTS then
+				-- Never catches up before the curve ends (shouldn't happen
+				-- with this curve's shape, but stay monotonic either way).
+				for i = regionStart, TOTAL_JUMP_POINTS - 1 do
+					MONOTONIC_POINT_COST[i] = startValue
+				end
+				p = TOTAL_JUMP_POINTS
+			else
+				local endValue = rawSinglePointCost(catchUp)
+				local steps = catchUp - regionStart + 1
+				local stepRatio = (endValue / startValue) ^ (1 / steps)
+				for i = 0, steps - 1 do
+					MONOTONIC_POINT_COST[regionStart + i] = startValue * (stepRatio ^ i)
+				end
+				runningMax = MONOTONIC_POINT_COST[catchUp - 1]
+				p = catchUp
+			end
 		end
-		MONOTONIC_POINT_COST[p] = runningMax
 	end
 end
 
@@ -333,6 +495,11 @@ function EconomyService.GetJumpUpgradeState(player)
 		JumpPoints = points,
 		MaxJumpPoints = TOTAL_JUMP_POINTS,
 		JumpPower = stats.JumpPower,
+		-- The earned CEILING at full 180/180 points (Sprungkraft-Anzeige
+		-- ersetzt auf Wunsch die Sprung-Punkte-Anzeige im Panel/Kiosk — siehe
+		-- UIBuilder.PopulateJumpUpgrade/BaseService.UpdateStationLabels — mit
+		-- JumpPower/MaxJumpPower statt JumpPoints/MaxJumpPoints).
+		MaxJumpPower = ALL_JUMP_TIERS[#ALL_JUMP_TIERS].JumpPower,
 		TierName = stats.TierName,
 		BulkOptions = bulkOptions,
 	}
@@ -668,6 +835,7 @@ function EconomyService.FireDataUpdated(player)
 		JumpPoints = jumpState.JumpPoints,
 		MaxJumpPoints = jumpState.MaxJumpPoints,
 		JumpPower = jumpState.JumpPower,
+		MaxJumpPower = jumpState.MaxJumpPower,
 		JumpTierName = jumpState.TierName,
 		JumpBulkOptions = jumpState.BulkOptions,
 		Rebirths = data.Rebirths,

@@ -2559,6 +2559,172 @@ function UIBuilder.Build(player)
 	-- every time to include whichever rows are actually unlocked+priced.
 	wireVerticalChain({ fastTravelCloseButton })
 
+	-- === Offline-earnings popup ("Willkommen zurück", hidden full-screen overlay) ===
+	-- Shown once right after join if EconomyService.ComputeOfflineEarnings
+	-- found enough Cash to be worth showing (see GameConfig.OfflineEarnings /
+	-- init.client.lua's ShowOfflineEarnings listener). Same overlay+dialog
+	-- shape as sellOverlay/jumpOverlay above, just its own instances so none
+	-- of them can ever fight over Visible — green accent (matches the Cash
+	-- display's own color), since this is purely a Cash reward, not a
+	-- purchase or a warning like the other dialogs.
+	local offlineEarningsOverlay = Instance.new("Frame")
+	offlineEarningsOverlay.Name = "OfflineEarningsOverlay"
+	offlineEarningsOverlay.Size = UDim2.new(1, 0, 1, 0)
+	offlineEarningsOverlay.BackgroundColor3 = Color3.new(0, 0, 0)
+	offlineEarningsOverlay.BackgroundTransparency = 0.45
+	offlineEarningsOverlay.Visible = false
+	offlineEarningsOverlay.ZIndex = 10
+	offlineEarningsOverlay.Parent = screenGui
+
+	local offlineEarningsDialog = Instance.new("Frame")
+	offlineEarningsDialog.Name = "OfflineEarningsDialog"
+	offlineEarningsDialog.AnchorPoint = Vector2.new(0.5, 0.5)
+	offlineEarningsDialog.Position = UDim2.new(0.5, 0, 0.5, 0)
+	offlineEarningsDialog.Size = UDim2.new(0, 340, 0, 360)
+	offlineEarningsDialog.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+	offlineEarningsDialog.ZIndex = 11
+	offlineEarningsDialog.Parent = offlineEarningsOverlay
+	Instance.new("UICorner", offlineEarningsDialog).CornerRadius = UDim.new(0, 18)
+	local offlineEarningsStroke = Instance.new("UIStroke")
+	offlineEarningsStroke.Color = Color3.fromRGB(58, 58, 68)
+	offlineEarningsStroke.Thickness = 2
+	offlineEarningsStroke.Parent = offlineEarningsDialog
+
+	local offlineEarningsIconRing = Instance.new("Frame")
+	offlineEarningsIconRing.Name = "IconRing"
+	offlineEarningsIconRing.AnchorPoint = Vector2.new(0.5, 0)
+	offlineEarningsIconRing.Position = UDim2.new(0.5, 0, 0, 20)
+	offlineEarningsIconRing.Size = UDim2.new(0, 64, 0, 64)
+	offlineEarningsIconRing.BackgroundColor3 = Color3.fromRGB(30, 60, 34)
+	offlineEarningsIconRing.ZIndex = 12
+	offlineEarningsIconRing.Parent = offlineEarningsDialog
+	Instance.new("UICorner", offlineEarningsIconRing).CornerRadius = UDim.new(1, 0)
+
+	local offlineEarningsIcon = Instance.new("TextLabel")
+	offlineEarningsIcon.Name = "Icon"
+	offlineEarningsIcon.Size = UDim2.new(1, 0, 1, 0)
+	offlineEarningsIcon.BackgroundTransparency = 1
+	offlineEarningsIcon.Text = "💰"
+	offlineEarningsIcon.Font = Enum.Font.GothamBold
+	offlineEarningsIcon.TextScaled = true
+	offlineEarningsIcon.ZIndex = 12
+	offlineEarningsIcon.Parent = offlineEarningsIconRing
+
+	local offlineEarningsTitle = Instance.new("TextLabel")
+	offlineEarningsTitle.Name = "Title"
+	offlineEarningsTitle.Size = UDim2.new(1, -20, 0, 28)
+	offlineEarningsTitle.Position = UDim2.new(0, 10, 0, 92)
+	offlineEarningsTitle.BackgroundTransparency = 1
+	offlineEarningsTitle.Text = "Willkommen zurück!"
+	offlineEarningsTitle.TextColor3 = Color3.new(1, 1, 1)
+	offlineEarningsTitle.Font = Enum.Font.GothamBold
+	offlineEarningsTitle.TextScaled = true
+	offlineEarningsTitle.ZIndex = 12
+	offlineEarningsTitle.Parent = offlineEarningsDialog
+
+	local offlineEarningsSubtitle = Instance.new("TextLabel")
+	offlineEarningsSubtitle.Name = "Subtitle"
+	offlineEarningsSubtitle.Size = UDim2.new(1, -20, 0, 20)
+	offlineEarningsSubtitle.Position = UDim2.new(0, 10, 0, 122)
+	offlineEarningsSubtitle.BackgroundTransparency = 1
+	offlineEarningsSubtitle.Text = ""
+	offlineEarningsSubtitle.TextColor3 = Color3.fromRGB(154, 154, 162)
+	offlineEarningsSubtitle.Font = Enum.Font.Gotham
+	offlineEarningsSubtitle.TextScaled = true
+	offlineEarningsSubtitle.ZIndex = 12
+	offlineEarningsSubtitle.Parent = offlineEarningsDialog
+
+	local offlineEarningsAmountBox = Instance.new("Frame")
+	offlineEarningsAmountBox.Name = "AmountBox"
+	offlineEarningsAmountBox.Size = UDim2.new(1, -32, 0, 74)
+	offlineEarningsAmountBox.Position = UDim2.new(0, 16, 0, 152)
+	offlineEarningsAmountBox.BackgroundColor3 = Color3.fromRGB(38, 38, 46)
+	offlineEarningsAmountBox.ZIndex = 12
+	offlineEarningsAmountBox.Parent = offlineEarningsDialog
+	Instance.new("UICorner", offlineEarningsAmountBox).CornerRadius = UDim.new(0, 12)
+
+	local offlineEarningsAmountLabel = Instance.new("TextLabel")
+	offlineEarningsAmountLabel.Name = "AmountLabel"
+	offlineEarningsAmountLabel.Size = UDim2.new(1, -16, 1, -8)
+	offlineEarningsAmountLabel.Position = UDim2.new(0, 8, 0, 4)
+	offlineEarningsAmountLabel.BackgroundTransparency = 1
+	offlineEarningsAmountLabel.Text = "+$0"
+	offlineEarningsAmountLabel.TextColor3 = Color3.fromRGB(70, 255, 90)
+	offlineEarningsAmountLabel.Font = Enum.Font.GothamBold
+	offlineEarningsAmountLabel.TextScaled = true
+	offlineEarningsAmountLabel.ZIndex = 13
+	offlineEarningsAmountLabel.Parent = offlineEarningsAmountBox
+
+	local offlineEarningsBreakdownLabel = Instance.new("TextLabel")
+	offlineEarningsBreakdownLabel.Name = "BreakdownLabel"
+	offlineEarningsBreakdownLabel.Size = UDim2.new(1, -32, 0, 18)
+	offlineEarningsBreakdownLabel.Position = UDim2.new(0, 16, 0, 230)
+	offlineEarningsBreakdownLabel.BackgroundTransparency = 1
+	offlineEarningsBreakdownLabel.Text = ""
+	offlineEarningsBreakdownLabel.TextColor3 = Color3.fromRGB(120, 120, 128)
+	offlineEarningsBreakdownLabel.Font = Enum.Font.Gotham
+	offlineEarningsBreakdownLabel.TextScaled = true
+	offlineEarningsBreakdownLabel.ZIndex = 12
+	offlineEarningsBreakdownLabel.Parent = offlineEarningsDialog
+
+	local offlineEarningsClaimButton = Instance.new("TextButton")
+	offlineEarningsClaimButton.Name = "ClaimButton"
+	offlineEarningsClaimButton.Size = UDim2.new(1, -32, 0, 46)
+	offlineEarningsClaimButton.Position = UDim2.new(0, 16, 0, 258)
+	offlineEarningsClaimButton.BackgroundColor3 = Color3.fromRGB(70, 255, 90)
+	offlineEarningsClaimButton.TextColor3 = Color3.fromRGB(13, 31, 15)
+	offlineEarningsClaimButton.Font = Enum.Font.GothamBold
+	offlineEarningsClaimButton.TextScaled = true
+	offlineEarningsClaimButton.Text = "Abholen"
+	offlineEarningsClaimButton.ZIndex = 12
+	offlineEarningsClaimButton.Parent = offlineEarningsDialog
+	Instance.new("UICorner", offlineEarningsClaimButton).CornerRadius = UDim.new(0, 10)
+
+	-- Hidden until GetProductInfo confirms a real product below — same
+	-- "don't show a purchase prompt for something that turned out not to
+	-- exist" reasoning as the Jump Upgrade Robux buttons above.
+	--
+	-- Solid gold fill + dark brown text (on report, "das kann man nicht sehr
+	-- gut lesen" — gold TEXT on the dialog's own near-black background read
+	-- poorly). Same "solid saturated fill + dark/white bold text" contrast
+	-- pattern every other real button in this game already uses (e.g.
+	-- ClaimButton above: bright green fill + dark green text), instead of a
+	-- colored label floating on a dark backdrop.
+	local offlineEarningsDoubleButton = Instance.new("TextButton")
+	offlineEarningsDoubleButton.Name = "DoubleButton"
+	offlineEarningsDoubleButton.Size = UDim2.new(1, -32, 0, 38)
+	offlineEarningsDoubleButton.Position = UDim2.new(0, 16, 0, 312)
+	offlineEarningsDoubleButton.BackgroundColor3 = Color3.fromRGB(255, 200, 40)
+	offlineEarningsDoubleButton.TextColor3 = Color3.fromRGB(60, 42, 4)
+	offlineEarningsDoubleButton.Font = Enum.Font.GothamBold
+	offlineEarningsDoubleButton.TextScaled = true
+	offlineEarningsDoubleButton.Text = "Verdoppeln (? Robux)"
+	offlineEarningsDoubleButton.Visible = false
+	offlineEarningsDoubleButton.ZIndex = 12
+	offlineEarningsDoubleButton.Parent = offlineEarningsDialog
+	Instance.new("UICorner", offlineEarningsDoubleButton).CornerRadius = UDim.new(0, 10)
+
+	local offlineDoubleProductId = GameConfig.OfflineEarnings.DoubleRobuxProduct.ProductId
+	if offlineDoubleProductId and offlineDoubleProductId > 0 then
+		offlineEarningsDoubleButton:SetAttribute("ProductId", offlineDoubleProductId)
+		task.spawn(function()
+			local ok, info = pcall(function()
+				return MarketplaceService:GetProductInfo(offlineDoubleProductId, Enum.InfoType.Product)
+			end)
+			if ok and info and info.PriceInRobux then
+				offlineEarningsDoubleButton.Text = "Verdoppeln (" .. tostring(info.PriceInRobux) .. " Robux)"
+				offlineEarningsDoubleButton.Visible = true
+				-- Same "only link once actually visible" reasoning as the Jump
+				-- Upgrade Robux buttons above — this fetch can fail or never
+				-- resolve, and a link into a still-hidden button would strand
+				-- gamepad navigation.
+				wireVerticalChain({ offlineEarningsClaimButton, offlineEarningsDoubleButton })
+			end
+		end)
+	end
+
+	wireVerticalChain({ offlineEarningsClaimButton })
+
 	local ui = {
 		ScreenGui = screenGui,
 		CashLabel = cashLabel,
@@ -2669,6 +2835,12 @@ function UIBuilder.Build(player)
 		LeaderboardSelfRowInfo = { Avatar = leaderboardSelfAvatarImage, LoadedUserId = nil },
 		LeaderboardSelfRankLabel = leaderboardSelfRankLabel,
 		LeaderboardSelfValueLabel = leaderboardSelfValueLabel,
+		OfflineEarningsOverlay = offlineEarningsOverlay,
+		OfflineEarningsSubtitle = offlineEarningsSubtitle,
+		OfflineEarningsAmountLabel = offlineEarningsAmountLabel,
+		OfflineEarningsBreakdownLabel = offlineEarningsBreakdownLabel,
+		OfflineEarningsClaimButton = offlineEarningsClaimButton,
+		OfflineEarningsDoubleButton = offlineEarningsDoubleButton,
 	}
 
 	return ui
@@ -2806,6 +2978,44 @@ function UIBuilder.HideSellConfirm(ui)
 	popGamepadFocus()
 end
 
+-- === Offline-earnings popup ("Willkommen zurück") ==============================
+
+-- "2 Std. 47 Min." / "34 Min." (never shows Std. AND Sek., and never 0 of
+-- something — GameConfig.OfflineEarnings.MinSecondsToShow already filters out
+-- anything under a minute, so seconds alone never need to appear here).
+local function formatOfflineDuration(totalSeconds)
+	local hours = math.floor(totalSeconds / 3600)
+	local minutes = math.floor((totalSeconds % 3600) / 60)
+	if hours > 0 then
+		return hours .. " Std. " .. minutes .. " Min."
+	end
+	return minutes .. " Min."
+end
+
+-- `info` is ShowOfflineEarnings' payload (see EconomyService.
+-- ComputeOfflineEarnings): {Amount, OfflineSeconds, RatePerSecond,
+-- RateFraction, DoubleProductId}. Wire ui.OfflineEarningsClaimButton/
+-- OfflineEarningsDoubleButton click events yourself (see init.client.lua) —
+-- this just handles visibility/content, same split as every other Show*
+-- dialog above. The Double button's own Visible flag is left alone here — it
+-- only ever turns on once GetProductInfo confirms a real product (see
+-- UIBuilder.Build), independent of which offline-earnings amount is showing.
+function UIBuilder.ShowOfflineEarnings(ui, info)
+	ui.OfflineEarningsSubtitle.Text = "Du warst " .. formatOfflineDuration(info.OfflineSeconds) .. " offline"
+	ui.OfflineEarningsAmountLabel.Text = "+$" .. UIBuilder.FormatNumber(info.Amount)
+
+	local ratePercent = math.floor((info.RateFraction or 0) * 100 + 0.5)
+	ui.OfflineEarningsBreakdownLabel.Text = "$" .. UIBuilder.FormatNumber(info.RatePerSecond or 0) .. "/s × " .. ratePercent .. "%"
+
+	ui.OfflineEarningsOverlay.Visible = true
+	pushGamepadFocus(ui.OfflineEarningsClaimButton)
+end
+
+function UIBuilder.HideOfflineEarnings(ui)
+	ui.OfflineEarningsOverlay.Visible = false
+	popGamepadFocus()
+end
+
 -- === Jump Upgrade panel =========================================================
 
 -- `data` is the latest DataUpdated payload (see EconomyService.
@@ -2823,13 +3033,17 @@ function UIBuilder.PopulateJumpUpgrade(ui, data)
 	local maxPoints = data.MaxJumpPoints or 0
 	local atMax = points >= maxPoints
 
-	-- Nur noch die Sprung-Punkte anzeigen (auf Wunsch) — die Sprungkraft-Zahl
-	-- und der Tier-Name ("99 (Bouncy Boots)") sind rein kosmetisch entfernt;
-	-- JumpPower/JumpTierName kommen aus `data` weiterhin unverändert (siehe
-	-- EconomyService.GetJumpUpgradeState), werden hier nur nicht mehr
-	-- angezeigt. Die Physik (tatsächliche Sprunghöhe im Spiel) und die
-	-- Kosten-Stufen sind davon NICHT betroffen, siehe Chat.
-	ui.JumpUpgradeStatusLabel.Text = points .. " / " .. maxPoints .. " Sprung-Punkte"
+	-- Zeigt jetzt die Sprungkraft (JumpPower/MaxJumpPower) statt der rohen
+	-- Sprung-Punkte (auf Wunsch, umgekehrt zur vorherigen Änderung oben) —
+	-- JumpPoints/MaxJumpPoints bleiben die intern gekaufte/bepreiste Einheit
+	-- (siehe EconomyService.GetJumpUpgradeState/BuyJumpUpgrade), hier wird
+	-- nur die dem Spieler angezeigte Zahl umgestellt. `atMax` bleibt an den
+	-- Punkten hängen, nicht an JumpPower, da das die tatsächliche Kauf-
+	-- Grenze ist (beide erreichen ihr Maximum exakt gleichzeitig, da
+	-- JumpPower monoton aus den Punkten interpoliert wird).
+	local jumpPower = math.floor((data.JumpPower or 0) + 0.5)
+	local maxJumpPower = math.floor((data.MaxJumpPower or 0) + 0.5)
+	ui.JumpUpgradeStatusLabel.Text = jumpPower .. " / " .. maxJumpPower .. " Sprungkraft"
 
 	ui.JumpUpgradeMaxLabel.Visible = atMax
 	ui.JumpUpgradeOptionsList.Visible = not atMax
@@ -3282,6 +3496,16 @@ end
 -- SellCreature via the CreatureSold RemoteEvent.
 function UIBuilder.ShowSellToast(ui, info)
 	fadeMessage(ui.SellToastLabel, "Verkauft: " .. info.Name .. " für " .. UIBuilder.FormatNumber(info.Value) .. " Cash", Color3.fromRGB(40, 150, 80))
+end
+
+-- Confirmation toast once the offline-earnings popup's amount is actually
+-- credited (see init.client.lua's ClaimButton/OfflineEarningsDoubled
+-- handlers) — reuses the generic ToastLabel (same one ShowCreatureToast
+-- uses), since this can't realistically overlap with a "got a creature"
+-- toast right at the start of a session the way Sell has its own dedicated
+-- label to avoid fighting with Obtain.
+function UIBuilder.ShowOfflineEarningsToast(ui, amount)
+	fadeMessage(ui.ToastLabel, "+$" .. UIBuilder.FormatNumber(amount) .. " Offline-Einnahmen erhalten!", Color3.fromRGB(70, 255, 90))
 end
 
 -- info = { Rarity = rarityName, BonusPercent = 10 } from CreatureService's

@@ -390,7 +390,29 @@ GameConfig.JumpTiers = {
 -- panel (see UIBuilder.lua's Jump Upgrade panel / PopulateJumpUpgrade).
 GameConfig.JumpUpgrade = {
 	PointsPerTier = 20,
-	CostCurveRatio = 1.15,
+
+	-- Was 1.15 — lowered on report ("die Sprünge kosten zeitweise immer das
+	-- selbe"): at 1.15, a single tier segment's own internal price range
+	-- (ratio^19 ≈ 16x from first point to last) grew MUCH faster than the
+	-- budget actually grows between tiers (~2.1-2.2x per tier, see each
+	-- JumpTiers/PrestigeJumpTiers entry's Cost). That mismatch forced
+	-- EconomyService's monotonicity fix (see its own long comment) to bridge
+	-- a big gap right after every tier boundary with a long, barely-rising
+	-- ramp — up to 14 points where the price grew so little per purchase
+	-- (~0.5%) that it displayed as the exact same rounded price over and
+	-- over, even though it was technically still increasing.
+	--
+	-- 1.04 makes a segment's own internal range (1.04^19 ≈ 2.1x) match how
+	-- fast the tier budgets themselves grow — confirmed by simulation to need
+	-- ZERO bridging anywhere across the whole curve (base 10 tiers AND the
+	-- Prestige-Turm's Tier 11-20), so every single purchase now costs
+	-- visibly more than the last, and the total grind cost lands exactly on
+	-- this table's own designed budget (CostMultiplier × the sum of every
+	-- tier's Cost) instead of quietly overshooting it. The tradeoff: buying
+	-- in bulk (+25 at once) no longer costs dramatically more per point than
+	-- a single +1 right next to it — the escalation across one whole tier
+	-- segment is far gentler now, closer to linear than the old steep curve.
+	CostCurveRatio = 1.04,
 
 	-- Flat multiplier on EVERY JumpTiers[...].Cost below (applied in
 	-- EconomyService's getSinglePointCost) — on request: the full grind used
@@ -528,6 +550,32 @@ GameConfig.Economy = {
 	-- number, and automatically scales up with Rebirths just like the
 	-- Cash/sec display does.
 	SellValueSeconds = 60,
+}
+
+-- === OFFLINE EARNINGS ==========================================================
+-- "Willkommen zurück"-Popup beim Join, wenn seit dem letzten Speichern
+-- (PlayerDataManager.Save setzt data.LastSeenAt) genug Zeit vergangen ist —
+-- siehe EconomyService.ComputeOfflineEarnings. Nutzt dieselbe Cash/sec-Rate,
+-- die auch das HUD anzeigt (EconomyService.GetCreatureCashRates), nur mit
+-- RateFraction abgeschwächt und auf MaxSeconds gedeckelt, damit Online-Spielen
+-- spürbar besser bleibt als Offline-Liegenlassen und eine wochenlange Pause
+-- nicht die Ökonomie sprengt.
+GameConfig.OfflineEarnings = {
+	Enabled = true,
+
+	-- Anteil der normalen Online-Rate, der offline gutgeschrieben wird.
+	RateFraction = 0.5,
+
+	-- Deckel für die angerechnete Offline-Zeit (4 Stunden).
+	MaxSeconds = 4 * 60 * 60,
+
+	-- Unter dieser Abwesenheit erscheint gar kein Popup (z. B. ein kurzer
+	-- Reconnect) — vermeidet ein nerviges "+$12" gleich nach dem Neuladen.
+	MinSecondsToShow = 60,
+
+	-- "Verdoppeln"-Button im Popup (siehe UIBuilder.ShowOfflineEarnings) —
+	-- echtes Developer Product, in Studios Monetization-Tab erstellt.
+	DoubleRobuxProduct = { ProductId = 3712264230, RobuxCost = 29 },
 }
 
 -- === CREATURES (collectibles) ================================================

@@ -1869,7 +1869,14 @@ function BaseService.UpdateStationLabels(player)
 	if labels.Upgrade then
 		local jumpState = EconomyService.GetJumpUpgradeState(player)
 		if jumpState and jumpState.JumpPoints < jumpState.MaxJumpPoints then
-			labels.Upgrade.Text = jumpState.JumpPoints .. " / " .. jumpState.MaxJumpPoints .. " Sprung"
+			-- Zeigt die Sprungkraft (JumpPower/MaxJumpPower) statt der rohen
+			-- Sprung-Punkte — gleiche Umstellung wie UIBuilder.
+			-- PopulateJumpUpgrade, siehe dessen Kommentar. Die "fertig
+			-- gekauft?"-Prüfung bleibt an JumpPoints hängen (die tatsächliche
+			-- Kauf-Grenze), nur die angezeigte Zahl ändert sich.
+			local jumpPower = math.floor(jumpState.JumpPower + 0.5)
+			local maxJumpPower = math.floor(jumpState.MaxJumpPower + 0.5)
+			labels.Upgrade.Text = jumpPower .. " / " .. maxJumpPower .. " Sprungkraft"
 		else
 			labels.Upgrade.Text = "MAX SPRUNG"
 		end

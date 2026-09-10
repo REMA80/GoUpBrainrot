@@ -108,6 +108,15 @@ local DEFAULT_DATA = {
 	                       -- once-per-real-day pattern as LastWheelSpinAt right
 	                       -- above, just for the Floor 100 chest instead of the
 	                       -- Glücksrad. 0 = never opened yet.
+
+	LastSeenAt = 0, -- os.time() this player was last saved (set by Save()
+	                -- below, every time — PlayerRemoving, BindToClose, and
+	                -- the periodic auto-save loop all go through it). Read by
+	                -- EconomyService.ComputeOfflineEarnings on the NEXT join
+	                -- to work out how long they were away (see GameConfig.
+	                -- OfflineEarnings). 0 = never saved yet (a brand-new
+	                -- player), which ComputeOfflineEarnings treats as "nothing
+	                -- to show" rather than a multi-decade offline bonus.
 }
 
 local PlayerDataManager = {}
@@ -182,7 +191,19 @@ end
 
 function PlayerDataManager.Save(player)
 	local data = cache[player.UserId]
-	if not data or not store then
+	if not data then
+		return
+	end
+
+	-- Marks "we know this player was here as of right now" — read back on
+	-- their NEXT join by EconomyService.ComputeOfflineEarnings to work out
+	-- how long they were away. Set unconditionally (even if `store` is nil
+	-- and nothing actually persists this session) so a Studio playtest
+	-- without DataStore access still behaves consistently, just never
+	-- remembers it across a real restart.
+	data.LastSeenAt = os.time()
+
+	if not store then
 		return
 	end
 	local key = "Player_" .. player.UserId
