@@ -89,6 +89,34 @@ local function broadcastNotice(message)
 	end
 end
 
+-- Weighted pick between GameConfig.AdminAbuse.ChestCreatureRarities (normal
+-- chests) and EventChestCreatureRarities (an active "/adminabuse" window) —
+-- on request ("mehr Diamond, weniger Toxic", ausdrücklich nur normal, nicht
+-- während des Events), each entry carries its own Weight instead of the old
+-- flat 50/50 coin-flip (rarities[math.random(1, #rarities)]). Same
+-- cumulative-weight roll shape CreatureService.rollCreature already uses for
+-- its own weighted rarity picks.
+local function pickWeightedChestRarity()
+	local entries = EventService.IsAdminAbuseActive()
+		and GameConfig.AdminAbuse.EventChestCreatureRarities
+		or GameConfig.AdminAbuse.ChestCreatureRarities
+
+	local totalWeight = 0
+	for _, entry in ipairs(entries) do
+		totalWeight += entry.Weight
+	end
+
+	local roll = math.random() * totalWeight
+	local cumulative = 0
+	for _, entry in ipairs(entries) do
+		cumulative += entry.Weight
+		if roll <= cumulative then
+			return entry.Rarity
+		end
+	end
+	return entries[#entries].Rarity
+end
+
 -- Same shape as SummitChestService/WheelService's own local copy — picks a
 -- random named creature (GameConfig.Creatures) matching the given Rarity.
 -- Deliberately its own local copy rather than a shared helper, matching how
@@ -163,8 +191,7 @@ local function grantChestReward(player)
 
 	local roll = math.random() * 100
 	if roll <= creatureChance then
-		local rarities = GameConfig.AdminAbuse.ChestCreatureRarities
-		local rarity = rarities[math.random(1, #rarities)]
+		local rarity = pickWeightedChestRarity()
 		local def = pickRandomCreatureOfRarity(rarity)
 		if def then
 			local granted = CreatureService.ClaimPhysicalCreature(player, def)

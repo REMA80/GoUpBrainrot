@@ -1060,7 +1060,30 @@ GameConfig.AdminAbuse = {
 	-- Spawnrate der Brainrots soll schlechter sein").
 	BaseChestCreatureChancePercent = 10,
 	EventChestCreatureChancePercent = 40,
-	ChestCreatureRarities = { "Diamond", "Toxic" },
+
+	-- Was a flat 50/50 array — on request ("mehr Diamond, weniger Toxic",
+	-- ausdrücklich nur für den NORMALEN Alltag, nicht für ein aktives
+	-- "/adminabuse"-Fenster) — each entry now carries its own Weight (see
+	-- AdminAbuseService.grantChestReward's weighted pick) instead of an even
+	-- coin-flip. 70/30 is a first-pass split, not a precisely derived one —
+	-- just raise/lower these two numbers (they don't need to sum to 100,
+	-- only their RATIO to each other matters) if it needs to lean further
+	-- either way. Only used when EventService.IsAdminAbuseActive() is false —
+	-- see EventChestCreatureRarities right below for the active-event case,
+	-- deliberately kept at the original even 50/50 split.
+	ChestCreatureRarities = {
+		{ Rarity = "Diamond", Weight = 70 },
+		{ Rarity = "Toxic", Weight = 30 },
+	},
+
+	-- Unverändert bei 50/50 — die Diamond/Toxic-Gewichtung oben war
+	-- ausdrücklich nur für den Normalbetrieb gewünscht, nicht für ein
+	-- aktives "/adminabuse"-Fenster.
+	EventChestCreatureRarities = {
+		{ Rarity = "Diamond", Weight = 50 },
+		{ Rarity = "Toxic", Weight = 50 },
+	},
+
 	ChestCashBonusSeconds = 120,
 }
 
