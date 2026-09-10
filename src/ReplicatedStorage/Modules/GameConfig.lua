@@ -58,12 +58,23 @@ GameConfig.Floors = {
 	-- real margin to raise this too. Raised to 11 (~22-stud jump) — a
 	-- moderate step, not the full jump to HorizontalOffset's new 17, since
 	-- this is still the single tightest jump in the whole game and the one
-	-- that would be most punishing to get wrong for a fresh player. I can't
-	-- run Roblox's jump physics here to confirm reachability, so please
-	-- playtest Floors 1-6 specifically — if it still feels too easy this
-	-- can go higher, and if any jump feels unreachable drop it back
-	-- toward 9.
-	EarlyHorizontalOffset = 11,
+	-- that would be most punishing to get wrong for a fresh player.
+	--
+	-- Raised again, 11 -> 15 (on request: "beim Springen mit dem Kopf gegen
+	-- die Platten" on Floor 1-5) — this is the exact same overlap problem
+	-- HorizontalOffset's own history above already describes for the general
+	-- case ("a high-arc jump would reach its peak height while still under
+	-- that overlap and smack the underside of the floor above"): with only
+	-- an 11-stud radius, the next floor in the spiral sits close enough that
+	-- an ascending jump's head can still clip its underside before clearing
+	-- it sideways. 15 stays a clear step below HorizontalOffset's 17 (Floor
+	-- 1-6 is still the easiest/tightest band in the game on purpose), but
+	-- gives real extra side-to-side room during the climb. Safe to raise
+	-- further if head-bumping is still reported — unlike Gap/JumpPower pairs
+	-- elsewhere in this file, widening this can only ever help clearance,
+	-- never make a jump unreachable on its own (see HorizontalOffset's own
+	-- comment on the same point) — please playtest Floor 1-6 again.
+	EarlyHorizontalOffset = 15,
 
 	-- SPIRAL/FUNNEL LAYOUT: floors no longer just alternate left/right along
 	-- one line — each one sits on a circle around the tower's central
@@ -940,8 +951,7 @@ GameConfig.Event = {
 -- Applies to EVERY rarity class the same way (Normal, Gold, Diamond, Toxic,
 -- Galaxy, Hacker, Lava, Glitchrot, Singularity) — the user's own explicit
 -- choice over "just Normal for now" — and stacks ADDITIVELY per completed
--- rarity (same +/= pattern as GameConfig.Gamepasses.VIP.CashBoost below), so
--- completing all 9 rarities eventually adds up to +90% Cash. See
+-- rarity, so completing all 9 rarities eventually adds up to +90% Cash. See
 -- EconomyService's getCashMultiplierFactor (the ONE shared place real income
 -- AND the Dex's own preview numbers both read from) for where this is
 -- actually applied, and CreatureService.GetDexCompletionBonus for how many
@@ -1239,8 +1249,15 @@ GameConfig.HUD = {
 }
 
 -- === MONETIZATION ==============================================================
--- IDs are placeholders (0 = "not configured"). You can only create real Game
--- Passes after first publishing the game once. See README.md for the steps.
+-- Every entry below already has its real Studio-created ID filled in. A
+-- future new entry starts at Id/ProductId = 0 ("not configured") until you
+-- publish the game once and create the real Game Pass / Developer Product in
+-- Studio's Monetization tab — see README.md for the steps. (VIP and Auto
+-- Climb Boost used to sit here as two such never-finished placeholders —
+-- removed entirely on request, since neither had a kiosk left to sell them:
+-- VIP's kiosk was replaced by "1x Wiedergeburt", and Auto Climb Boost never
+-- got one back after an earlier rework. See EconomyService/
+-- MonetizationService git history if either is ever wanted back.)
 --
 -- IMPORTANT — DoubleCash/QuadCash/AutoCollect below are marked
 -- `IsDeveloperProduct = true`. Diagnosed after "Fehler" purchase failures
@@ -1287,8 +1304,6 @@ GameConfig.Gamepasses = {
 	-- once a player already owns DoubleCash (see BaseService.buildStations /
 	-- UpdateStationLabels).
 	QuadCash    = { Id = 3711600500, Name = "4x Cash",           Multiplier = 4, RobuxCost = 299, IsDeveloperProduct = true },
-	AutoClimb   = { Id = 0, Name = "Auto Climb Boost",  JumpBonus = 1.25 },
-	VIP         = { Id = 0, Name = "VIP",               CashBoost = 0.25 },
 	-- On request ("Slap Hand entfernen und stattdessen ein Kauf Button für
 	-- automatisch Geld Sammeln ... der dann automatisch immer das Geld von
 	-- den Brainrots einsammelt") — replaces the Slap Hand kiosk in

@@ -415,9 +415,6 @@ local function getCashMultiplierFactor(player, data)
 		elseif MonetizationService.OwnsDoubleCash(player) then
 			gamepassFactor *= GameConfig.Gamepasses.DoubleCash.Multiplier
 		end
-		if MonetizationService.OwnsVIP(player) then
-			gamepassFactor += GameConfig.Gamepasses.VIP.CashBoost
-		end
 	end
 
 	-- Brainrot-Dex completion bonus (on request, "wenn man alle rarity Normal
@@ -426,9 +423,8 @@ local function getCashMultiplierFactor(player, data)
 	-- CompletionCashBoostPerRarity) per rarity class this player has FULLY
 	-- discovered (see CreatureService.GetCompletedRarityCount / data.
 	-- DiscoveredCreatures), permanent even after selling/trading every copy
-	-- away. Additive, same +/= pattern as VIP.CashBoost right above, so it
-	-- stacks cleanly with everything else here — completing all 9 rarities
-	-- eventually adds up to +90%.
+	-- away. Additive, stacks cleanly with everything else here — completing
+	-- all 9 rarities eventually adds up to +90%.
 	if CreatureService then
 		local completedRarities = CreatureService.GetCompletedRarityCount(player)
 		if completedRarities > 0 then
@@ -449,8 +445,8 @@ local function getCashMultiplierFactor(player, data)
 	end
 
 	-- Freundschafts-Boost (on request, "10% Cash Boost solange der Freund
-	-- oder die Freunde da sind") — additive, same bucket as VIP/Dex-
-	-- completion above, so it stacks cleanly with everything else here.
+	-- oder die Freunde da sind") — additive, same bucket as the Dex-
+	-- completion bonus above, so it stacks cleanly with everything else here.
 	-- See friendBoostFraction/RecalculateFriendBoosts' own comments for how
 	-- this value gets computed and kept up to date.
 	local friendBoost = friendBoostFraction[player]
@@ -510,10 +506,6 @@ function EconomyService.ApplyJumpPower(player)
 	local minJumpPower = GameConfig.JumpTiers[1].JumpPower
 	local fraction = jumpHeightFraction[player] or 1
 	local jumpPower = minJumpPower + (maxJumpPower - minJumpPower) * fraction
-
-	if MonetizationService and MonetizationService.OwnsAutoClimb(player) then
-		jumpPower *= GameConfig.Gamepasses.AutoClimb.JumpBonus
-	end
 
 	humanoid.UseJumpPower = true
 	humanoid.JumpPower = jumpPower
@@ -730,8 +722,9 @@ function EconomyService.FireDataUpdated(player)
 		FriendBoostPercent = friendBoostFraction[player] or 0,
 	})
 
-	-- Keeps the 5 physical base-station kiosks (Jump Upgrade, Rebirth, Slap
-	-- Hand, 2x Cash, VIP — see BaseService.lua) showing up-to-date cost/tier
+	-- Keeps the 5 physical base-station kiosks (Jump Upgrade, Rebirth,
+	-- Auto-Sammeln, 2x Cash, 1x Wiedergeburt — see BaseService.lua) showing
+	-- up-to-date cost/tier
 	-- text. FireDataUpdated is already the single funnel-point every
 	-- Cash/Tier/Rebirth-affecting action calls, so this one hook covers all
 	-- of them with no extra plumbing at each call site.
@@ -974,7 +967,6 @@ local function performRebirth(player, skipCostCheck)
 	jumpHeightFraction[player] = nil
 
 	EconomyService.ApplyJumpPower(player)
-	EconomyService.FireDataUpdated(player)
 
 	if RebirthCosmeticsService then
 		RebirthCosmeticsService.Apply(player)
@@ -993,6 +985,25 @@ local function performRebirth(player, skipCostCheck)
 	if root and floor1 then
 		root.CFrame = floor1.CFrame + Vector3.new(0, 6, 0)
 	end
+
+	-- MOVED here (used to fire right after ApplyJumpPower, BEFORE
+	-- RebirthCosmeticsService/RefreshBase/the teleport above) — on request
+	-- ("die Base-Kiosk-Anzeigen (Sprung-Punkte, Wiedergeburt-Preis) zeigen
+	-- nach einem Rebirth manchmal noch den alten Stand, erst ein Kauf oder
+	-- Cash einsammeln bringt sie zurück"). RefreshBase alone rebuilds only
+	-- the Pedestals folder, never the Stations/kiosk billboards
+	-- (BaseService.UpdateStationLabels, called from inside FireDataUpdated
+	-- below, mutates those in place and was already correct on paper) — but
+	-- firing FireDataUpdated BEFORE that Instance-heavy rebuild and the
+	-- character teleport meant the kiosk billboard's freshly-set text was
+	-- immediately followed by a burst of further server work in the very
+	-- same tick, which could occasionally cost that particular property
+	-- update its spot in what actually reaches the client before the player
+	-- is already elsewhere. Firing it LAST — after every other Rebirth
+	-- side-effect has fully settled — makes it the final word on this
+	-- player's state for this tick instead of one update lost in the
+	-- middle of several.
+	EconomyService.FireDataUpdated(player)
 
 	-- "der Stand der Rebirth stimmt aktuell nicht überein" — the Hall of
 	-- Fame board otherwise only picks up a new Rebirth count on its next

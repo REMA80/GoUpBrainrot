@@ -101,7 +101,7 @@ local getDiscoveredCreaturesFn = newRemoteFunction("GetDiscoveredCreatures")
 -- gamepass purchase prompt (MarketplaceService:PromptGamePassPurchase only
 -- works from the client).
 newRemoteEvent("RequestRebirthConfirm") -- -> client: (no payload — client already has lastData from DataUpdated)
-newRemoteEvent("RequestGamepassPrompt") -- -> client: "DoubleCash" | "VIP"
+newRemoteEvent("RequestGamepassPrompt") -- -> client: "DoubleCash" | "QuadCash" | "AutoCollect"
 newRemoteEvent("RequestJumpUpgradePanel") -- -> client: (no payload — client already has JumpPoints/JumpBulkOptions from DataUpdated, see EconomyService.GetJumpUpgradeState)
 -- "1x Wiedergeburt" kiosk (replaced the old VIP kiosk, on request) — a
 -- Developer Product, not a Gamepass, so it needs its own event rather than
@@ -819,7 +819,6 @@ Players.PlayerRemoving:Connect(function(player)
 	LeaderboardService.SyncPlayer(player)
 	PlayerDataManager.Save(player)
 	PlayerDataManager.Release(player)
-	MonetizationService.Release(player)
 	BaseService.ReleasePlayer(player)
 	TradeService.ReleasePlayer(player)
 	EconomyService.ReleaseJumpHeightPreference(player)

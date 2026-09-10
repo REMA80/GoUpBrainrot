@@ -19,7 +19,9 @@
 	panel, the Brainrot-Dex (toggled via a button under the stats HUD), was
 	added later — a discovery/completion log of every creature that ever
 	existed (GameConfig.Creatures), including ones you HAVEN'T found yet
-	(shown as "???"), which the old removed panel never was.
+	(shown grayed-out, by name, so you know exactly what's still missing —
+	only the thumbnail/model stays hidden until found), which the old
+	removed panel never was.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -517,7 +519,10 @@ function UIBuilder.Build(player)
 
 	-- === Brainrot-Dex toggle button (just under the stats HUD) ==================
 	-- Opens the Dex panel below — a discovery log of every creature in
-	-- GameConfig.Creatures, showing "???" for ones you haven't found yet.
+	-- GameConfig.Creatures, showing the real NAME grayed-out for ones you
+	-- haven't found yet (on request, "damit man sich beim suchen der noch
+	-- fehlenden Brainrots leichter tut" — the old "???" placeholder told
+	-- you nothing about which creature to actually look for).
 	-- ClientMain/init.client.lua wires the click (fetches the current list
 	-- from the server via the GetDiscoveredCreatures remote, then calls
 	-- UIBuilder.PopulateDex + ShowDex) — same separation as everywhere else.
@@ -1714,6 +1719,9 @@ function UIBuilder.Build(player)
 	-- version this replaced (see the long comment above this block).
 	local jumpBulkButtons = {} -- Cash buttons, parallel to BulkAmounts
 	local jumpRobuxButtons = {} -- Robux buttons, parallel to BulkAmounts (some may stay hidden)
+	local jumpTitleLabels = {} -- "+N Sprung" row titles, parallel to BulkAmounts — PopulateJumpUpgrade
+	-- rewrites these when a row can't actually deliver its full nominal
+	-- amount anymore (see that function's comment on option.PointsBought)
 	for i, amount in ipairs(GameConfig.JumpUpgrade.BulkAmounts) do
 		local row = Instance.new("Frame")
 		row.Name = "Row_" .. amount
@@ -1734,6 +1742,7 @@ function UIBuilder.Build(player)
 		titleLabel.Text = "+" .. amount .. " Sprung"
 		titleLabel.ZIndex = 12
 		titleLabel.Parent = row
+		jumpTitleLabels[i] = titleLabel
 
 		local cashButton = Instance.new("TextButton")
 		cashButton.Name = "CashButton"
@@ -2586,6 +2595,7 @@ function UIBuilder.Build(player)
 		JumpUpgradeMaxLabel = jumpMaxLabel,
 		JumpUpgradeOptionsList = jumpOptionsList,
 		JumpUpgradeBulkButtons = jumpBulkButtons,
+		JumpUpgradeTitleLabels = jumpTitleLabels,
 		JumpUpgradeRobuxButtons = jumpRobuxButtons,
 		WheelOverlay = wheelOverlay,
 		WheelCloseButton = wheelCloseButton,
@@ -2828,6 +2838,7 @@ function UIBuilder.PopulateJumpUpgrade(ui, data)
 	for i, button in ipairs(ui.JumpUpgradeBulkButtons) do
 		local option = options[i]
 		local robuxButton = ui.JumpUpgradeRobuxButtons[i]
+		local titleLabel = ui.JumpUpgradeTitleLabels and ui.JumpUpgradeTitleLabels[i]
 		if option then
 			-- The row's title label ("+N Sprung") already shows the amount,
 			-- so the Cash button itself only needs to show the price.
@@ -2835,6 +2846,26 @@ function UIBuilder.PopulateJumpUpgrade(ui, data)
 			button.BackgroundColor3 = option.Affordable and Color3.fromRGB(255, 175, 60) or Color3.fromRGB(130, 95, 60)
 			button:SetAttribute("BulkAmount", option.Amount)
 			button.Visible = true
+
+			-- On request ("manchmal kostet +1 Sprung dasselbe wie +10") — this
+			-- isn't actually a pricing bug: right near the very top of the
+			-- curve, EVERY bulk option can only ever deliver whatever's left
+			-- until GameConfig.JumpUpgrade's max (see EconomyService.
+			-- getBulkCost's PointsBought, < Amount only there), so a "+10"
+			-- row with only 1 point left to sell costs exactly the same as
+			-- the "+1" row right next to it — both are buying that same 1
+			-- point. The MATH was always right; what was missing is telling
+			-- the player WHY, since the row's title used to always say the
+			-- full nominal "+10 Sprung" regardless, with nothing to explain
+			-- why several rows suddenly show identical prices. Now the title
+			-- itself reflects the real, capped amount whenever it differs.
+			if titleLabel then
+				if option.PointsBought < option.Amount then
+					titleLabel.Text = "+" .. option.PointsBought .. " Sprung (Rest bis Max)"
+				else
+					titleLabel.Text = "+" .. option.Amount .. " Sprung"
+				end
+			end
 		else
 			button.Visible = false
 			if robuxButton then
@@ -3705,10 +3736,10 @@ end
 -- GameConfig.CreatureRarities already hold every static field a row needs
 -- (Name/Rarity/Color/MinRate/MaxRate) — the ONLY thing that differs per
 -- player, and that can change while the game is running, is which ones are
--- Discovered, which is why every row starts in its undiscovered ("???" +
--- dark swatch) state here regardless of this player's actual progress;
--- PopulateDex below reveals already-discovered ones on the very first call
--- right after this.
+-- Discovered, which is why every row starts in its undiscovered (real name,
+-- grayed-out text + dark "?" swatch) state here regardless of this player's
+-- actual progress; PopulateDex below reveals already-discovered ones on the
+-- very first call right after this.
 -- Every header/row is packed into pages by a running pixel-height total
 -- (reset whenever the next item would overflow DEX_PAGE_HEIGHT_BUDGET) and
 -- positioned by hand within its page — nothing here is ever clipped, and
@@ -3808,8 +3839,18 @@ local function ensureDexRowsBuilt(ui)
 		nameLabel.Font = Enum.Font.GothamBold
 		nameLabel.TextScaled = true
 		nameLabel.TextStrokeTransparency = 0.5
+		-- Was "???" — on request ("ich will das man alle Brainrots sieht aber
+		-- die die man noch nicht hat sollen nur ausgegraut sein"), an
+		-- undiscovered row now shows its REAL name (just grayed-out, same gray
+		-- as before) instead of hiding it, so a player scanning the Dex for
+		-- what's still missing knows exactly which creature to look for.
+		-- Nothing about the thumbnail changes — buildDexThumbnail above still
+		-- shows the dark "?" swatch, never the real model, until discovered,
+		-- so what the creature actually LOOKS like stays a surprise; only the
+		-- name (already harmless list-of-collectibles info, and needed to
+		-- actually search for one) is revealed early now.
 		nameLabel.TextColor3 = Color3.fromRGB(120, 120, 130)
-		nameLabel.Text = "???"
+		nameLabel.Text = def.Name
 		nameLabel.ZIndex = 12
 		nameLabel.Parent = row
 
@@ -3885,8 +3926,10 @@ end
 -- table's existing order — same order ui.DexRows was built in (see
 -- ensureDexRowsBuilt above), so this can walk both in lockstep by index
 -- instead of matching by name. Only ever MUTATES an existing row now — a
--- creature's row is "revealed" (stroke/name/thumbnail upgraded from "???")
--- exactly once, the very first time it shows up Discovered, and left alone
+-- creature's row is "revealed" (stroke/thumbnail upgraded from their grayed-
+-- out/"?" placeholders, name recolored white — the name TEXT itself was
+-- already showing, see ensureDexRowsBuilt) exactly once, the very first time
+-- it shows up Discovered, and left alone
 -- on every call after that, since discovery can only ever go from false to
 -- true, never back.
 function UIBuilder.PopulateDex(ui, entries)

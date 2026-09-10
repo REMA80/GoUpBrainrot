@@ -1,26 +1,28 @@
 --[[
 	MonetizationService.lua
-	Checks & caches Game Pass ownership, and handles Robux Developer Product
-	purchases — the Jump Upgrade panel's Sprung-point packs (GameConfig.
-	JumpUpgrade.RobuxProducts), the Glücksrad's two paid extra-spin bundles
-	(GameConfig.WheelOfFortune.RobuxProducts — "Kaufe 1"/"Kaufe 3"), the Fast-Travel kiosk's 4 paid
-	checkpoint teleports (GameConfig.FastTravel.Checkpoints), AND — despite
-	still living in GameConfig.Gamepasses — 2x Cash/4x Cash/Auto-Sammeln,
-	which turned out to be Developer Products too (see that table's own big
-	comment on how "Fehler, egal welche Id" purchase failures traced back to
-	this) — via ONE shared ProcessReceipt. Gamepass/Product IDs are
-	placeholders (0) in GameConfig until you publish the game once and
-	create the real Game Passes / Developer Products in Studio's
-	Monetization tab — see README.md and GameConfig.JumpUpgrade's comment.
+	Handles every Robux Developer Product purchase in the game — the Jump
+	Upgrade panel's Sprung-point packs (GameConfig.JumpUpgrade.RobuxProducts),
+	the Glücksrad's two paid extra-spin bundles (GameConfig.WheelOfFortune.
+	RobuxProducts — "Kaufe 1"/"Kaufe 3"), the Fast-Travel kiosk's 4 paid
+	checkpoint teleports (GameConfig.FastTravel.Checkpoints), the "1x
+	Wiedergeburt" button, AND — despite still living in GameConfig.
+	Gamepasses — 2x Cash/4x Cash/Auto-Sammeln, which turned out to be
+	Developer Products too (see that table's own big comment on how "Fehler,
+	egal welche Id" purchase failures traced back to this) — via ONE shared
+	ProcessReceipt. A future new product starts as an Id/ProductId = 0
+	placeholder in GameConfig until you publish the game once and create the
+	real Developer Product in Studio's Monetization tab — see README.md and
+	GameConfig.JumpUpgrade's comment.
 
-	Two different "does this player own it" strategies live side by side
-	here: checkOwnership below asks Roblox live (UserOwnsGamePassAsync,
-	cached) — correct ONLY for a real Game Pass, since Roblox remembers
-	those forever on its own. OwnsDoubleCash/OwnsQuadCash/OwnsAutoCollect
-	do NOT use checkOwnership — they read a plain PlayerData flag this game
-	persists itself the moment ProcessReceipt grants that Developer Product,
-	since Roblox has no equivalent "did they ever buy this" memory for
-	Developer Products at all.
+	Every ownable thing left in the game is a Developer Product, not a real
+	Game Pass (see GameConfig.Gamepasses' own comment — VIP and Auto Climb
+	Boost were the only two real Game Passes this game ever had, and both
+	were removed since neither had a kiosk left to sell them). So
+	OwnsDoubleCash/OwnsQuadCash/OwnsAutoCollect below all read a plain
+	PlayerData flag this game persists itself the moment ProcessReceipt
+	grants that Developer Product — Roblox has no "did they ever buy this"
+	memory for Developer Products the way it does for a real Game Pass
+	(UserOwnsGamePassAsync), so this game has to remember it instead.
 ]]
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -29,7 +31,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage.Modules.GameConfig)
 
 local MonetizationService = {}
-local ownershipCache = {} -- [userId] = { [gamepassId] = bool }
 
 local PlayerDataManager
 local EconomyService
@@ -43,36 +44,16 @@ function MonetizationService.Init(deps)
 	FastTravelService = deps.FastTravelService
 end
 
-local function checkOwnership(player, gamepassId)
-	if not gamepassId or gamepassId == 0 then
-		return false -- not configured yet
-	end
-
-	ownershipCache[player.UserId] = ownershipCache[player.UserId] or {}
-	local cached = ownershipCache[player.UserId][gamepassId]
-	if cached ~= nil then
-		return cached
-	end
-
-	local ok, owns = pcall(function()
-		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, gamepassId)
-	end)
-
-	local result = ok and owns or false
-	ownershipCache[player.UserId][gamepassId] = result
-	return result
-end
-
 -- DoubleCash/QuadCash/AutoCollect are Developer Products, not real Game
 -- Passes (see GameConfig.Gamepasses' own big comment on how that was
 -- diagnosed — "Fehler, egal welche Id" purchase failures traced back to a
 -- Creator Dashboard screenshot showing all three under Developer Products).
 -- Roblox has no "does this player own this Developer Product" API at all
--- (UserOwnsGamePassAsync only works for real Game Passes) — a Developer
--- Product purchase is a one-off event, not a standing ownership fact Roblox
--- tracks. So instead of asking Roblox (like checkOwnership below does for a
--- real Game Pass), these three just read the persisted flag this game sets
--- itself the moment ProcessReceipt sees the matching purchase (see its own
+-- (UserOwnsGamePassAsync only works for a real Game Pass, and this game
+-- doesn't have one of those left anymore — see the file header comment) — a
+-- Developer Product purchase is a one-off event, not a standing ownership
+-- fact Roblox tracks. So these three just read the persisted flag this game
+-- sets itself the moment ProcessReceipt sees the matching purchase (see its own
 -- comment further down, and PlayerDataManager's DEFAULT_DATA for the
 -- OwnsDoubleCash/OwnsQuadCash/OwnsAutoCollect fields) — a plain in-memory
 -- table read, so no async call or cache is even needed here anymore.
@@ -89,14 +70,6 @@ function MonetizationService.OwnsQuadCash(player)
 	return data ~= nil and data.OwnsQuadCash == true
 end
 
-function MonetizationService.OwnsAutoClimb(player)
-	return checkOwnership(player, GameConfig.Gamepasses.AutoClimb.Id)
-end
-
-function MonetizationService.OwnsVIP(player)
-	return checkOwnership(player, GameConfig.Gamepasses.VIP.Id)
-end
-
 -- On request, replacing the removed Slap Hand kiosk — see
 -- EconomyService.StartPassiveIncomeLoop for what owning this actually does
 -- (auto-collects every pedestal's payout straight into Cash every tick).
@@ -104,19 +77,6 @@ function MonetizationService.OwnsAutoCollect(player)
 	local data = PlayerDataManager and PlayerDataManager.Get(player)
 	return data ~= nil and data.OwnsAutoCollect == true
 end
-
-function MonetizationService.Release(player)
-	ownershipCache[player.UserId] = nil
-end
-
--- Refresh the cache immediately after a successful purchase so the effect
--- applies without waiting for the next UserOwnsGamePassAsync call.
-MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamepassId, wasPurchased)
-	if wasPurchased then
-		ownershipCache[player.UserId] = ownershipCache[player.UserId] or {}
-		ownershipCache[player.UserId][gamepassId] = true
-	end
-end)
 
 -- === Developer Product purchases (Jump Upgrade's Robux Sprung-point packs, ===
 -- === and the Glücksrad's paid extra spin) =====================================
