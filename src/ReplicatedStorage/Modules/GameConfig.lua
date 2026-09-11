@@ -1995,13 +1995,14 @@ GameConfig.FriendBoost = {
 -- Publish to Roblox) for the live server to pick it up — Studio Play-test
 -- picks it up immediately, no publish needed there.
 GameConfig.DataStore = {
-	-- Bumped v4 -> v5 on request ("Spiel komplett zurücksetzen, neue
-	-- Version") — every player starts completely fresh (Floor 1, 0 Cash,
-	-- keine Brainrots) the next time they join, since GetAsync on this new
-	-- name finds nothing and falls back to DEFAULT_DATA (see
-	-- PlayerDataManager.Load). The old v4 data isn't deleted, just no
-	-- longer read by anything — same "bump to reset" trick as always.
-	Name = "GoUpBrainrot_PlayerData_v5",
+	-- Bumped v5 -> v6 on request ("komplett resett mit neuer Version, für
+	-- alle Spieler und Server") — every player starts completely fresh
+	-- (Floor 1, 0 Cash, keine Brainrots) the next time they join, since
+	-- GetAsync on this new name finds nothing and falls back to
+	-- DEFAULT_DATA (see PlayerDataManager.Load). The old v5 data isn't
+	-- deleted, just no longer read by anything — same "bump to reset"
+	-- trick as always.
+	Name = "GoUpBrainrot_PlayerData_v6",
 
 	-- On request ("ein Spieler hat sich vom PC auf dem Handy eingeloggt und
 	-- den aktuellen Speicherstand verloren") — PlayerDataManager.Save used
@@ -2026,19 +2027,19 @@ GameConfig.DataStore = {
 	-- the roster is a plain DataStore (a growing list of names). Same
 	-- "bump the name to reset" trick as Name (above, GoUpBrainrot_PlayerData_v4)
 	-- works here too if the leaderboard data ever needs a clean wipe.
-	-- All 4 also bumped alongside Name above, same "komplett zurücksetzen"
-	-- request — the global Hall of Fame/leaderboards start completely
-	-- empty again too, no old high scores from the previous version
-	-- carrying over.
-	LeaderboardRebirthsName = "GoUpBrainrot_LB_Rebirths_v3",
-	LeaderboardCashName = "GoUpBrainrot_LB_Cash_v3",
-	LeaderboardRosterName = "GoUpBrainrot_LB_Roster_v3",
+	-- All 4 also bumped alongside Name above, same "komplett zurücksetzen,
+	-- für alle Spieler und Server" request — the global Hall of Fame/
+	-- leaderboards start completely empty again too, no old high scores
+	-- from the previous version carrying over.
+	LeaderboardRebirthsName = "GoUpBrainrot_LB_Rebirths_v4",
+	LeaderboardCashName = "GoUpBrainrot_LB_Cash_v4",
+	LeaderboardRosterName = "GoUpBrainrot_LB_Roster_v4",
 	-- On request ("statt der Anzeige wer Floor 100 erreicht hat eine
 	-- Rangliste für Cash/s, serverübergreifend") — same OrderedDataStore
 	-- shape as LeaderboardRebirthsName/LeaderboardCashName above, just
 	-- storing EconomyService.GetCreatureCashRates' own total (a player's
 	-- current income rate) instead of Rebirths or lifetime Cash.
-	LeaderboardCashPerSecondName = "GoUpBrainrot_LB_CashPerSecond_v2",
+	LeaderboardCashPerSecondName = "GoUpBrainrot_LB_CashPerSecond_v3",
 }
 
 -- === GLOBAL HALL OF FAME / LEADERBOARD ========================================
