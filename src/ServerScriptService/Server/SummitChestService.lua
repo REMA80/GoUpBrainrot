@@ -38,12 +38,14 @@ local SummitChestService = {}
 local PlayerDataManager
 local EconomyService
 local CreatureService
+local AntiCheatReportService
 local remotesFolder
 
 function SummitChestService.Init(deps)
 	PlayerDataManager = deps.PlayerDataManager
 	EconomyService = deps.EconomyService
 	CreatureService = deps.CreatureService
+	AntiCheatReportService = deps.AntiCheatReportService
 	remotesFolder = deps.Remotes
 end
 
@@ -163,17 +165,25 @@ function SummitChestService.Open(player)
 	-- Anti-cheat (on request, following a security review): the chest's
 	-- ProximityPrompt only checks PHYSICAL distance, same as every other
 	-- kiosk — a speed/fly hack could reach Floor 100 without ever legitimately
-	-- climbing it and still open this. Require data.HighestFloor to already
-	-- cover Floor 100 itself, same "must have really reached it" principle as
-	-- the Fast-Travel fix (FastTravelService.Teleport) and the claim-spot fix
-	-- (init.server.lua's onClaimCreature wiring). Checked BEFORE touching the
-	-- once-per-day cooldown below, so a rejected attempt never costs the
-	-- player their real daily opening.
-	if data.HighestFloor < GameConfig.Floors.Count then
-		if remotesFolder then
-			remotesFolder.Notice:FireClient(player, "🏆 Du musst Floor 100 erst selbst erreichen, bevor die Mega-Truhe sich öffnet.")
-		end
-		return
+	-- climbing it and still open this. data.HighestFloor covering Floor 100
+	-- itself is the "really reached it" signal, same principle as the
+	-- Fast-Travel fix (FastTravelService.Teleport) and the claim-spot fix
+	-- (init.server.lua's onClaimCreature wiring).
+	--
+	-- On request ("die Meldung soll im richtigen Spiel weg, Spieler sollen
+	-- normal weiterspielen können, aber ich will einen Report sehen und
+	-- selbst entscheiden"): no longer blocks the chest or shows the player
+	-- anything — same "never interrupt, just record it" shape GameConfig.
+	-- AntiCheat's own floor-skip check already uses. AntiCheatReportService
+	-- persists every suspicious case for you to review with "/reports" and
+	-- act on yourself, per player — the opening below still goes ahead
+	-- either way, and still costs the real daily cooldown like any other
+	-- opening.
+	if AntiCheatReportService and data.HighestFloor < GameConfig.Floors.Count then
+		AntiCheatReportService.RecordViolation(player, "SummitChest", {
+			HighestFloor = data.HighestFloor,
+			RequiredFloor = GameConfig.Floors.Count,
+		})
 	end
 
 	local cooldown = GameConfig.Summit.ChestCooldownSeconds

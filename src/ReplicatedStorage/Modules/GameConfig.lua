@@ -1151,6 +1151,21 @@ GameConfig.AntiCheat = {
 	-- output only, never to the player) regardless — see
 	-- EconomyService.OnFloorReached — so nothing is silently lost from an
 	-- admin's point of view, it just never surfaces to the player anymore.
+
+	-- On request ("die Meldung soll im richtigen Spiel weg, Spieler sollen
+	-- normal weiterspielen, aber ich will einen Report sehen und selbst
+	-- entscheiden") — the claim-spot ("must have reached this floor") and
+	-- Mega-Truhe ("must have reached Floor 100") anti-cheat checks (see
+	-- init.server.lua's onClaimCreature wiring and SummitChestService.Open)
+	-- now follow the SAME "never interrupt the player, just record it"
+	-- shape as the floor-skip check right above — the claim/chest action is
+	-- still granted immediately (so a false positive, e.g. AdminFly-testing
+	-- in Studio or a legitimate-but-suspicious jump, never costs a real
+	-- player their reward), but every case is persisted to
+	-- AntiCheatReportService's cross-server DataStore log (see that file)
+	-- for you to review with "/reports" and decide what (if anything) to do
+	-- about that player yourself — no automatic ban/kick/revoke.
+	ReportMaxStored = 300,
 }
 
 -- === PLAYER BASE (creature display, "Steal a Brainrot" style) ================
@@ -2039,6 +2054,13 @@ GameConfig.DataStore = {
 	-- storing EconomyService.GetCreatureCashRates' own total (a player's
 	-- current income rate) instead of Rebirths or lifetime Cash.
 	LeaderboardCashPerSecondName = "GoUpBrainrot_LB_CashPerSecond_v2",
+
+	-- Cross-server persisted log for AntiCheatReportService.lua — see
+	-- GameConfig.AntiCheat's own comment on ReportMaxStored for why this
+	-- exists. Plain DataStore (not Ordered), same shape as
+	-- LeaderboardRosterName: one growing, capped JSON list under a single
+	-- fixed key, read-modify-written via UpdateAsync.
+	AntiCheatReportsName = "GoUpBrainrot_AntiCheatReports_v1",
 }
 
 -- === GLOBAL HALL OF FAME / LEADERBOARD ========================================
