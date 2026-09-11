@@ -29,6 +29,7 @@ local WheelService = require(script.WheelService)
 local SummitChestService = require(script.SummitChestService)
 local FastTravelService = require(script.FastTravelService)
 local AdminAbuseService = require(script.AdminAbuseService)
+local AntiCheatReportService = require(script.AntiCheatReportService)
 
 -- NOTE: Players.MaxPlayers is READ-ONLY at runtime — it can't be set from a
 -- script (assigning it throws and stops this whole script from running,
@@ -251,6 +252,7 @@ SummitChestService.Init({
 	PlayerDataManager = PlayerDataManager,
 	EconomyService = EconomyService,
 	CreatureService = CreatureService,
+	AntiCheatReportService = AntiCheatReportService,
 	Remotes = remotesFolder,
 })
 
@@ -393,17 +395,27 @@ TowerGenerator.Build(
 		-- EconomyService.OnFloorReached): a claim spot only lives on a
 		-- floor the player must have PHYSICALLY reached to stand on, but a
 		-- speed/fly hack could reach one without ever legitimately earning
-		-- the floors below it. Require data.HighestFloor to already cover
-		-- this spot's own floor before honoring the claim — same "must have
-		-- really reached it" principle as the Fast-Travel fix
-		-- (FastTravelService.Teleport), just enforced here instead since
-		-- claim spots aren't gated through OnFloorReached at all.
+		-- the floors below it. data.HighestFloor covering this spot's own
+		-- floor is the "really reached it" signal — same principle as the
+		-- Fast-Travel fix (FastTravelService.Teleport), just checked here
+		-- instead since claim spots aren't gated through OnFloorReached at
+		-- all.
+		--
+		-- On request ("die Meldung soll im richtigen Spiel weg, Spieler
+		-- sollen normal weiterspielen können, aber ich will einen Report
+		-- sehen und selbst entscheiden"): no longer blocks the claim or
+		-- shows the player anything — same "never interrupt, just record
+		-- it" shape GameConfig.AntiCheat's own floor-skip check already
+		-- uses. AntiCheatReportService persists every suspicious case
+		-- (player, this spot's floor, their actual HighestFloor) for you to
+		-- review with "/reports" and act on yourself, per player — nothing
+		-- here decides that automatically anymore.
 		local data = PlayerDataManager.Get(player)
-		if not data or (floorIndex and data.HighestFloor < floorIndex) then
-			if remotesFolder then
-				remotesFolder.Notice:FireClient(player, "Du musst diesen Floor erst selbst erreichen, bevor du hier etwas beanspruchen kannst.")
-			end
-			return false
+		if data and floorIndex and data.HighestFloor < floorIndex then
+			AntiCheatReportService.RecordViolation(player, "ClaimSpot", {
+				FloorIndex = floorIndex,
+				HighestFloor = data.HighestFloor,
+			})
 		end
 		return CreatureService.ClaimPhysicalCreature(player, def)
 	end,
@@ -550,6 +562,35 @@ Players.PlayerAdded:Connect(function(player)
 				local minutesStr = lower:match("^/adminabuse%s+(%d+)")
 				local minutes = minutesStr and tonumber(minutesStr) or GameConfig.AdminAbuse.DefaultDurationMinutes
 				AdminAbuseService.Start(player, minutes)
+			end
+		elseif lower == "/reports" then
+			-- Debug: "/reports" dumps the full AntiCheatReportService history
+			-- (every claim-spot/Mega-Truhe case flagged as "reached this
+			-- floor implausibly", see that file and its callers) into the
+			-- server output via warn() — visible right here in Studio's
+			-- Output while testing, or in a live published server via the
+			-- in-experience Developer Console (Shift+F9) since you're the
+			-- game's owner. Purely informational: nothing here bans, kicks,
+			-- or reverts anything automatically — read the list and decide
+			-- yourself what (if anything) to do about a given player.
+			local reports = AntiCheatReportService.GetReports()
+			if #reports == 0 then
+				warn("[AntiCheatReport] Keine Verstöße aufgezeichnet.")
+			else
+				warn(string.format("[AntiCheatReport] %d aufgezeichnete(r) Verstoß/Verstöße:", #reports))
+				for i, entry in ipairs(reports) do
+					local parts = {}
+					for key, value in pairs(entry) do
+						if key ~= "Name" and key ~= "UserId" and key ~= "Kind" and key ~= "Timestamp" then
+							table.insert(parts, key .. "=" .. tostring(value))
+						end
+					end
+					warn(string.format(
+						"  %d. %s (UserId %d) — %s — %s — %s",
+						i, entry.Name, entry.UserId, tostring(entry.Kind),
+						os.date("%Y-%m-%d %H:%M:%S", entry.Timestamp), table.concat(parts, ", ")
+					))
+				end
 			end
 		elseif lower == "/resetdata" then
 			-- Debug: wipes THIS player's save (Cash, Rebirths, JumpPoints, and
