@@ -665,9 +665,12 @@ function LeaderboardService.BuildBoard()
 	panelPrompt.ActionText = "Bestenliste ansehen"
 	panelPrompt.ObjectText = "Rangliste"
 	panelPrompt.HoldDuration = 0.3
-	panelPrompt.MaxActivationDistance = 20
+	-- Kleinerer Radius (war 20) und zurück auf Default-Style (siehe
+	-- BaseService.lua's buildStationPart für die volle Begründung) —
+	-- Custom-Style hat Verkaufen/Einsammeln auf echten Handys zuverlässig
+	-- kaputt gemacht.
+	panelPrompt.MaxActivationDistance = 10
 	panelPrompt.RequiresLineOfSight = false
-	panelPrompt.Style = Enum.ProximityPromptStyle.Custom
 	panelPrompt.Parent = platform
 
 	panelPrompt.Triggered:Connect(function(triggeringPlayer)
