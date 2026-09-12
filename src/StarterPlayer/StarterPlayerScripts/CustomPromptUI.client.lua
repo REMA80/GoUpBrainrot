@@ -183,9 +183,21 @@ local function buildGui(prompt)
 	-- Fläche über dem gesamten Billboard holt das nach: sie meldet Antippen/
 	-- Halten manuell über ProximityPrompt:InputHoldBegin()/InputHoldEnd()
 	-- an den Prompt — genau der von Roblox für selbstgebaute Custom-UIs
-	-- vorgesehene Weg. Funktioniert nebenbei auch für Maus-Klick-und-Halten,
-	-- was aber keinen Unterschied macht, weil PC-Spieler ohnehin die Taste
-	-- benutzen.
+	-- vorgesehene Weg.
+	--
+	-- WICHTIG: MouseButton1Down/MouseButton1Up (erste Version dieses Fixes)
+	-- sind laut Roblox-Doku reine MAUS-Events, kein plattformübergreifendes
+	-- Touch-Verhalten dokumentiert — genau deshalb blieb Verkaufen/Einsammeln
+	-- auf dem Handy trotzdem tot. GuiObject.InputBegan/InputEnded feuern
+	-- dagegen zuverlässig für JEDEN Input-Typ (Maus, Touch, Gamepad) mit dem
+	-- tatsächlichen UserInputType im InputObject, deshalb hier stattdessen
+	-- verwendet und explizit auf Touch + MouseButton1 gefiltert (Tastatur/
+	-- Gamepad laufen ja schon direkt über den Prompt selbst, siehe oben —
+	-- die würden hier sonst z. B. über Enum.UserInputType.Gamepad1 doppelt
+	-- mitgezählt). InputEnded feuert laut Doku garantiert, auch wenn der
+	-- Finger vorher vom Button weggerutscht ist, bevor losgelassen wurde —
+	-- kein extra Sicherheitsnetz wie MouseLeave (das ohnehin nur für die
+	-- Maus dokumentiert ist) nötig.
 	local touchButton = Instance.new("TextButton")
 	touchButton.Name = "TouchButton"
 	touchButton.Size = UDim2.new(1, 0, 1, 0)
@@ -195,24 +207,25 @@ local function buildGui(prompt)
 	touchButton.ZIndex = 3
 	touchButton.Parent = gui
 
+	local function isPressInput(input)
+		return input.UserInputType == Enum.UserInputType.Touch
+			or input.UserInputType == Enum.UserInputType.MouseButton1
+	end
+
 	table.insert(
 		entry.Connections,
-		touchButton.MouseButton1Down:Connect(function()
-			prompt:InputHoldBegin()
+		touchButton.InputBegan:Connect(function(input)
+			if isPressInput(input) then
+				prompt:InputHoldBegin()
+			end
 		end)
 	)
 	table.insert(
 		entry.Connections,
-		touchButton.MouseButton1Up:Connect(function()
-			prompt:InputHoldEnd()
-		end)
-	)
-	-- Sicherheitsnetz: Finger rutscht beim Halten vom Button runter, ohne
-	-- dass MouseButton1Up dort noch feuert — sonst bliebe der Hold ewig aktiv.
-	table.insert(
-		entry.Connections,
-		touchButton.MouseLeave:Connect(function()
-			prompt:InputHoldEnd()
+		touchButton.InputEnded:Connect(function(input)
+			if isPressInput(input) then
+				prompt:InputHoldEnd()
+			end
 		end)
 	)
 
