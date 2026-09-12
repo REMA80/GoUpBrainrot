@@ -839,12 +839,12 @@ local function buildClaimSpot(platform, floorIndex, onRollClaimChoices, onClaimC
 		prompt.ActionText = "Claim"
 		prompt.ObjectText = def.Name
 		prompt.HoldDuration = 0.5
-		prompt.MaxActivationDistance = 13 -- war 8, testweise +5 auf Wunsch
-		-- Custom statt Default: kein rechteckiges Prompt-Kästchen mehr, siehe
-		-- StarterPlayerScripts/CustomPromptUI.client.lua für die Ersatz-GUI,
-		-- und behebt nebenbei das "Maus bleibt stehen"-Kamera-Problem, das
-		-- an Robloxs Default-Style-Prompt-GUI selbst hängt.
-		prompt.Style = Enum.ProximityPromptStyle.Custom
+		-- Zurück auf 8 (war zwischenzeitlich 13) und zurück auf Default-Style
+		-- (siehe BaseService.lua's buildStationPart für die volle Begründung):
+		-- der Custom-Style-Umbau hat Einsammeln/Claim auf echten Handys
+		-- zuverlässig kaputt gemacht, ein kleinerer Radius hält Robloxs
+		-- Default-Kästchen dafür seltener im Weg.
+		prompt.MaxActivationDistance = 8
 		prompt.Parent = hitbox
 
 		-- Guards against two players triggering the SAME stand at once —
@@ -1282,12 +1282,11 @@ function TowerGenerator.Build(onFloorReached, onRollClaimChoices, onClaimCreatur
 				chestPrompt.ActionText = GameConfig.Summit.ChestActionText
 				chestPrompt.ObjectText = GameConfig.Summit.ChestTitle
 				chestPrompt.HoldDuration = 0.5
-				chestPrompt.MaxActivationDistance = 15 -- war 10, testweise +5 auf Wunsch
-				-- Custom statt Default: kein rechteckiges Prompt-Kästchen mehr,
-				-- siehe StarterPlayerScripts/CustomPromptUI.client.lua, und
-				-- behebt nebenbei das "Maus bleibt stehen"-Kamera-Problem, das
-				-- an Robloxs Default-Style-Prompt-GUI selbst hängt.
-				chestPrompt.Style = Enum.ProximityPromptStyle.Custom
+				-- Zurück auf 10 (war zwischenzeitlich 15) und zurück auf
+				-- Default-Style (siehe BaseService.lua's buildStationPart für
+				-- die volle Begründung) — Custom-Style hat das auf echten
+				-- Handys zuverlässig kaputt gemacht.
+				chestPrompt.MaxActivationDistance = 10
 				chestPrompt.Parent = chestAnchor
 
 				chestPrompt.Triggered:Connect(function(triggeringPlayer)
