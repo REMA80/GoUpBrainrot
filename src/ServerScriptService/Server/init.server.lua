@@ -200,6 +200,7 @@ EconomyService.Init({
 	BaseService = BaseService,
 	EventService = EventService,
 	LeaderboardService = LeaderboardService,
+	AntiCheatReportService = AntiCheatReportService,
 	Remotes = remotesFolder,
 })
 

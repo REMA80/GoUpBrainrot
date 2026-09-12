@@ -18,6 +18,7 @@ local RebirthCosmeticsService
 local BaseService
 local EventService
 local LeaderboardService
+local AntiCheatReportService
 local remotesFolder
 
 -- [player] = os.time() this player's temporary Glücksrad "2x Cash" prize
@@ -140,6 +141,7 @@ function EconomyService.Init(deps)
 	BaseService = deps.BaseService
 	EventService = deps.EventService
 	LeaderboardService = deps.LeaderboardService
+	AntiCheatReportService = deps.AntiCheatReportService
 	remotesFolder = deps.Remotes
 end
 
@@ -933,24 +935,40 @@ function EconomyService.OnFloorReached(player, floorIndex)
 			-- Anti-cheat: see GameConfig.AntiCheat's long comment for the full
 			-- design. Deliberately does NOT require every floor touched in
 			-- order (a strong Jump-Upgrade tier legitimately clears several at
-			-- once) — only rejects a skip that's implausible given how much
-			-- real time actually passed since the last floor touch. A rejected
-			-- skip is silent to the player (no kick/ban, this floor just
-			-- doesn't count) and logged server-side every time, purely for
-			-- server-owner visibility (Studio's/the game's own server output) —
-			-- on request, this no longer shows the player themselves anything
-			-- ("⚠️ Ungewöhnliche Bewegung erkannt"), since a real player doing a
-			-- Rebirth immediately followed by a Jump-Upgrade purchase could
-			-- legitimately clear several floors right after their baseline
-			-- reset, and kept seeing that warning for entirely honest play.
+			-- once) — only FLAGS a skip that's implausible given how much real
+			-- time actually passed since the last floor touch.
+			--
+			-- Used to `return` here instead of granting the floor at all — on
+			-- report ("der Floor Zähler zählt nicht richtig, da er glaubt man
+			-- cheatet mit dem Max Jump Upgrade"), a fully-upgraded player
+			-- (Ultra Sigma Boots, 370 JumpPower) can legitimately clear big
+			-- gaps fast enough, or in one continuous jump-chain skip past
+			-- enough Detectors, to trip this heuristic honestly — and silently
+			-- refusing to update HighestFloor left their own progress counter
+			-- permanently stuck below where they actually were, with no way to
+			-- ever recover it (every subsequent touch from the same real
+			-- position looks like the exact same "skip" again).
+			--
+			-- Same "never block a real player, just record it for the owner to
+			-- review" shape AntiCheatReportService already uses for the
+			-- claim-spot/Mega-Truhe checks (see its own header comment) — the
+			-- floor still counts immediately, no more permanently-stuck
+			-- counter, and every flagged case is still fully visible via the
+			-- "/reports" admin command AND the server output for real-time
+			-- visibility either way.
 			if not isFloorSkipPlausible(player, floorIndex) then
 				floorSkipFlagCount[player] = (floorSkipFlagCount[player] or 0) + 1
 				local lastKnownFloor = lastFloorProgress[player] and lastFloorProgress[player].Floor or data.HighestFloor
 				warn(string.format(
-					"[AntiCheat] %s (UserId %d): implausible floor skip %d -> %d rejected (flag #%d this session)",
+					"[AntiCheat] %s (UserId %d): implausible floor skip %d -> %d (flag #%d this session, floor still granted)",
 					player.Name, player.UserId, lastKnownFloor, floorIndex, floorSkipFlagCount[player]
 				))
-				return
+				if AntiCheatReportService then
+					AntiCheatReportService.RecordViolation(player, "FloorSkip", {
+						FromFloor = lastKnownFloor,
+						ToFloor = floorIndex,
+					})
+				end
 			end
 
 			data.HighestFloor = floorIndex

@@ -1110,10 +1110,11 @@ GameConfig.AdminAbuse = {
 -- it needs dialing up or down" situation as GameConfig.Floors' own jump-gap
 -- tuning (real Roblox jump/movement feel has repeatedly turned out more
 -- forgiving than an idealized formula predicts, see that section's own
--- history). Getting this too strict risks falsely blocking a genuinely
--- excellent player's progress (silently, see OnFloorReached — no kick/ban,
--- just that one floor-touch doesn't count); too loose lets a hack still
--- slip through. When in doubt, err generous.
+-- history). A flagged skip no longer costs a real player anything (see
+-- OnFloorReached — the floor is granted either way, only reported for you to
+-- review via "/reports"), so getting this too strict just adds noise to that
+-- report list rather than blocking anyone; too loose lets a hack slip
+-- through unnoticed instead. When in doubt, err generous.
 GameConfig.AntiCheat = {
 	-- Minimum real seconds required PER FLOOR skipped, at an assumed
 	-- best-case play speed — e.g. skipping 4 floors in one jump-chain needs
@@ -1136,21 +1137,30 @@ GameConfig.AntiCheat = {
 	-- Hard ceiling, independent of elapsed time entirely: no legitimate
 	-- single jump (or connected jump-chain touching only its start/end
 	-- floor) clears this many floors in one Detector touch, so this always
-	-- rejects a skip bigger than this, no matter what the time math above
-	-- says — a backstop against the time-based check somehow being fooled
-	-- (e.g. a server hiccup inflating the measured elapsed time).
+	-- FLAGS a skip bigger than this, no matter what the time math above says
+	-- — a backstop against the time-based check somehow being fooled (e.g. a
+	-- server hiccup inflating the measured elapsed time). Same as the
+	-- time-based check, this only gets reported now, never actually blocks
+	-- the floor from counting (see the NOTE right below).
 	HardMaxFloorsSkip = 20,
 
 	-- NOTE: this used to also show the player themselves an in-game warning
-	-- Notice after enough rejected skips in one session. Removed on request
-	-- — a real player doing a Rebirth immediately followed by a Jump-Upgrade
-	-- purchase could legitimately clear several floors right after their
-	-- progress reset, and kept seeing that ("⚠️ Ungewöhnliche Bewegung
-	-- erkannt") warning for entirely honest play. Every rejection is still
-	-- logged server-side (warn(), visible in Studio's/the game's own server
-	-- output only, never to the player) regardless — see
-	-- EconomyService.OnFloorReached — so nothing is silently lost from an
-	-- admin's point of view, it just never surfaces to the player anymore.
+	-- Notice after enough rejected skips in one session, AND used to refuse
+	-- to grant the floor at all. Both removed on request — a real player
+	-- doing a Rebirth immediately followed by a Jump-Upgrade purchase (or
+	-- simply owning a maxed-out Jump-Upgrade tier, see the report on 2026-09-
+	-- 11: "der Floor Zähler zählt nicht richtig, da er glaubt man cheatet mit
+	-- dem Max Jump Upgrade") could legitimately trip this heuristic, and
+	-- either kept seeing that ("⚠️ Ungewöhnliche Bewegung erkannt") warning,
+	-- or — worse — had their own HighestFloor counter get permanently stuck
+	-- below where they actually were, for entirely honest play. A flagged
+	-- skip now ALWAYS still grants the floor, same "never block, just make it
+	-- visible" shape AntiCheatReportService already uses for the claim-spot/
+	-- Mega-Truhe checks — every flagged case is still logged server-side
+	-- (warn(), plus persisted via AntiCheatReportService for the "/reports"
+	-- admin command) regardless, see EconomyService.OnFloorReached — so
+	-- nothing is silently lost from an admin's point of view, it just never
+	-- costs the player anything anymore.
 
 	-- On request ("die Meldung soll im richtigen Spiel weg, Spieler sollen
 	-- normal weiterspielen, aber ich will einen Report sehen und selbst
