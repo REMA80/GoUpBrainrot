@@ -223,10 +223,9 @@ local scheduleNextChest
 local spawnChest
 
 -- Baut EINE physische Truhe auf einer zufälligen Etagen-Plattform, verdrahtet
--- ihren ProximityPrompt (Custom-Style — siehe CustomPromptUI.client.lua, das
--- für JEDEN Custom-Style-Prompt automatisch die Kreis+Text-GUI baut, hier
--- also ganz ohne eigenen Aufwand) und plant sowohl ihr Verschwinden nach
--- Ablauf der Lebenszeit als auch (über removeChest -> scheduleNextChest)
+-- ihren ProximityPrompt (Default-Style — Roblox liefert Maus-Klick, Touch-Tap
+-- UND Gamepad dafür automatisch mit, ganz ohne eigenen Aufwand) und plant
+-- sowohl ihr Verschwinden nach Ablauf der Lebenszeit als auch (über removeChest -> scheduleNextChest)
 -- ihren Ersatz anderswo — aber nur solange `chestsRunning` noch true ist.
 -- Seit die Truhen permanent laufen, wird das in der Praxis nie mehr false
 -- (nichts ruft das je zurück), der Guard bleibt aber als Sicherheitsnetz
@@ -287,10 +286,9 @@ spawnChest = function()
 	prompt.HoldDuration = 0.4
 	prompt.MaxActivationDistance = GameConfig.AdminAbuse.ChestPickupRadius
 	prompt.RequiresLineOfSight = false
-	-- Custom statt Default: kein rechteckiges Prompt-Kästchen, siehe
-	-- CustomPromptUI.client.lua, das das automatisch für jeden Custom-Style-
-	-- Prompt im Spiel übernimmt.
-	prompt.Style = Enum.ProximityPromptStyle.Custom
+	-- Zurück auf Default-Style (siehe BaseService.lua's buildStationPart für
+	-- die volle Begründung) — Custom-Style hat Verkaufen/Einsammeln auf
+	-- echten Handys zuverlässig kaputt gemacht.
 	prompt.Parent = chest
 
 	-- chest.Parent selbst ist die "schon entfernt?"-Prüfung (Destroy setzt

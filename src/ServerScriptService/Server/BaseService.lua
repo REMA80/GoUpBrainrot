@@ -543,14 +543,18 @@ local function buildStationPart(parent, plotCFrame, localX, localZ, color, title
 		prompt.ActionText = actionText
 		prompt.ObjectText = title
 		prompt.HoldDuration = 0.3
-		prompt.MaxActivationDistance = 15 -- war 10, testweise +5 auf Wunsch
+		-- Zurück auf 10 (war zwischenzeitlich 15) — kleinerer Aktivierungs-
+		-- radius, damit Robloxs eingebautes Default-Style-Prompt-Kästchen
+		-- seltener bloß durchs Vorbeilaufen/-schauen auftaucht. Zurück auf
+		-- Default-Style selbst (siehe unten) ist auf Wunsch, weil der
+		-- Custom-Style-Umbau (eigene BillboardGui + manuelles
+		-- ProximityPrompt:InputHoldBegin()/InputHoldEnd() über einen
+		-- unsichtbaren Touch-Button, siehe Git-Historie) Verkaufen/Einsammeln
+		-- auf echten Handys zuverlässig kaputt gemacht hat — Default-Style
+		-- braucht dafür gar keinen eigenen Code, Roblox liefert Maus-Klick,
+		-- Touch-Tap UND Gamepad automatisch mit.
 		prompt.RequiresLineOfSight = false
-		-- Custom instead of Default: drops Robloxs eingebautes rechteckiges
-		-- Prompt-Kästchen (auf Wunsch entfernt — siehe StarterPlayerScripts/
-		-- CustomPromptUI.client.lua für die schlanke Ersatz-GUI: nur Kreis ums
-		-- Tasten-Symbol + Text) UND behebt nebenbei "Maus bleibt stehen, Kamera
-		-- dreht sich nicht mehr", das nur bei Default-Style-Prompts auftrat.
-		prompt.Style = Enum.ProximityPromptStyle.Custom
+		prompt.MaxActivationDistance = 10
 		prompt.Parent = pad
 	end
 
@@ -1701,34 +1705,20 @@ function BaseService.RefreshBase(player)
 				sellPrompt.ActionText = "Verkaufen (+" .. formatCashRate(sellValue) .. ")"
 				sellPrompt.ObjectText = creatureName
 				sellPrompt.HoldDuration = 0.5
-				-- Was 10 — with rows only SlotRowsZ apart (9 studs), a 10-stud
-				-- radius meant almost the ENTIRE row was in range of two (or
-				-- even three) pedestals' prompts at once: exactly the
-				-- "dozen overlapping ProximityPrompt bubbles + BillboardGuis"
-				-- clutter seen in a base with several claimed creatures
-				-- ("Maus bleibt stehen, wenn ich mit der Maus darüber
-				-- fahre" — several simultaneous prompt UIs stacked on each
-				-- other under the cursor). 6 keeps a comfortable trigger
-				-- radius around each individual pedestal (still well inside
-				-- reach from the tile itself, even from a far corner — see
-				-- the display's carpet-ward offset above) while only rarely
-				-- overlapping the next one over.
-				-- Testweise +5 auf Wunsch (11 statt 6) — liegt jetzt wieder
-				-- ÜBER dem 9-Stud-Row-Abstand, adjazente Pedestal-Ringe
-				-- können sich also wieder gleichzeitig zeigen. Das alte
-				-- "Maus bleibt stehen"-Problem kann dadurch nicht mehr
-				-- zurückkommen (das hing an Robloxs Default-Style-GUI, nicht
-				-- an der Distanz), höchstens optische Häufung mehrerer Ringe
-				-- nebeneinander — falls das stört, einfach wieder runter auf
-				-- 6-8 setzen.
-				sellPrompt.MaxActivationDistance = 11
+				-- Zurück auf 6 (war zwischenzeitlich 11): mit Reihen nur
+				-- SlotRowsZ (9 Studs) auseinander hält das den Trigger-Radius
+				-- jedes Pedestals sauber getrennt von seinen Nachbarn — kein
+				-- Haufen überlappender Prompt-Kästchen auf einmal, was
+				-- Robloxs Default-Style-Kästchen sonst zusätzlich zum
+				-- klassischen "Maus bleibt stehen, Kamera dreht sich nicht
+				-- mehr"-Problem macht (siehe unten). Zurück auf Default-Style
+				-- selbst ist auf Wunsch, weil der Custom-Style-Umbau (eigene
+				-- BillboardGui + manuelles ProximityPrompt:InputHoldBegin()/
+				-- InputHoldEnd() über einen unsichtbaren Touch-Button, siehe
+				-- Git-Historie) Verkaufen auf echten Handys zuverlässig kaputt
+				-- gemacht hat, ganz unabhängig von der Distanz hier.
+				sellPrompt.MaxActivationDistance = 6
 				sellPrompt.RequiresLineOfSight = false
-				-- Custom statt Default: kein rechteckiges Prompt-Kästchen mehr
-				-- (siehe CustomPromptUI.client.lua) — behebt außerdem endgültig
-				-- das oben beschriebene "Maus bleibt stehen"-Kamera-Problem,
-				-- das GuiNavigationEnabled=false allein nicht gelöst hat, weil
-				-- es an Robloxs eigener Default-Style-Prompt-GUI selbst hängt.
-				sellPrompt.Style = Enum.ProximityPromptStyle.Custom
 				sellPrompt.Parent = display
 
 				sellPrompt.Triggered:Connect(function(triggeringPlayer)
