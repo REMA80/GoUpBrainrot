@@ -173,6 +173,49 @@ local function buildGui(prompt)
 	local entry = { Gui = gui, Connections = {} }
 	activeEntries[prompt] = entry
 
+	-- Custom-Style zeichnet KEINE eigene UI mehr — auch nicht den Touch-
+	-- Button, den Roblox bei Default-Style automatisch fürs Handy anzeigt.
+	-- Tastatur (KeyboardKeyCode) und Gamepad (GamepadKeyCode) lösen den
+	-- Prompt weiterhin von selbst aus, weil das echte physische Eingaben
+	-- sind — für Touch gibt es aber ohne eigene UI buchstäblich nichts zum
+	-- Antippen mehr, seit dem Umstieg von Default auf Custom (siehe
+	-- Kommentar oben zum "Maus bleibt stehen"-Fix). Diese unsichtbare
+	-- Fläche über dem gesamten Billboard holt das nach: sie meldet Antippen/
+	-- Halten manuell über ProximityPrompt:InputHoldBegin()/InputHoldEnd()
+	-- an den Prompt — genau der von Roblox für selbstgebaute Custom-UIs
+	-- vorgesehene Weg. Funktioniert nebenbei auch für Maus-Klick-und-Halten,
+	-- was aber keinen Unterschied macht, weil PC-Spieler ohnehin die Taste
+	-- benutzen.
+	local touchButton = Instance.new("TextButton")
+	touchButton.Name = "TouchButton"
+	touchButton.Size = UDim2.new(1, 0, 1, 0)
+	touchButton.BackgroundTransparency = 1
+	touchButton.AutoButtonColor = false
+	touchButton.Text = ""
+	touchButton.ZIndex = 3
+	touchButton.Parent = gui
+
+	table.insert(
+		entry.Connections,
+		touchButton.MouseButton1Down:Connect(function()
+			prompt:InputHoldBegin()
+		end)
+	)
+	table.insert(
+		entry.Connections,
+		touchButton.MouseButton1Up:Connect(function()
+			prompt:InputHoldEnd()
+		end)
+	)
+	-- Sicherheitsnetz: Finger rutscht beim Halten vom Button runter, ohne
+	-- dass MouseButton1Up dort noch feuert — sonst bliebe der Hold ewig aktiv.
+	table.insert(
+		entry.Connections,
+		touchButton.MouseLeave:Connect(function()
+			prompt:InputHoldEnd()
+		end)
+	)
+
 	-- HoldDuration kann 0 sein (Sofort-Trigger ohne Halten) — dann macht
 	-- eine Füllanimation keinen Sinn, also nur verbinden, wenn tatsächlich
 	-- gehalten werden muss.
