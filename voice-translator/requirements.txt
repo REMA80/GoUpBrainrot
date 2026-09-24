@@ -1,0 +1,5 @@
+openai>=1.0
+deepl>=1.16
+soundcard>=0.4.3
+numpy
+python-dotenv

@@ -1,0 +1,4 @@
+# Enthaelt die API-Keys - niemals hochladen.
+.env
+__pycache__/
+.venv/
