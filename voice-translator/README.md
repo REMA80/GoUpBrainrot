@@ -66,9 +66,12 @@ Der Start dauert ein paar Sekunden, weil die App sich erst entpackt.
 
 1. **Spracherkennung**: „Groq“ lassen. Darunter den **Groq-Key** und den
    **DeepL-Key** einfügen (Strg+V).
-2. **Übersetzen nach**: deine Sprache, z. B. `DE`.
-3. **Zuhören bei**: „Lautsprecher / Kopfhörer (Mitspieler)“.
-   **Gerät**: das, worüber du den Spiel-/Voice-Chat-Ton hörst, z. B. dein Headset.
+2. Im Bereich **„Mitspieler → ich“**:
+   - **Zuhören bei**: „Lautsprecher / Kopfhörer“.
+   - **Gerät**: das, worüber du den Spiel-/Voice-Chat-Ton hörst, z. B. dein Headset.
+   - **Übersetzen nach**: deine Sprache, z. B. `DE`.
+3. Beim Bereich **„Ich → Mitspieler“** den Haken **„aktiv“** vorerst weglassen
+   (Einrichtung siehe unten, [Gegenrichtung](#gegenrichtung-deine-stimme-übersetzt-an-die-mitspieler)).
 4. **▶ Start** drücken.
 
 Die Einstellungen werden in der Datei `.env` neben der `.exe` gespeichert,
@@ -78,9 +81,10 @@ Die Einstellungen werden in der Datei `.env` neben der `.exe` gespeichert,
 
 | Element | Bedeutung |
 |---|---|
-| Mindest-Lautstärke | Ab dieser Lautstärke gilt etwas als Sprache. Der **Pegel**-Balken darunter zeigt live, wie laut es gerade ist. Regler so stellen, dass „● Sprache“ bei Stimmen aufleuchtet, aber nicht bei reinem Spielsound. Wirkt sofort, auch während es läuft. |
-| Am PC vorlesen | Übersetzung mit der Windows-Stimme vorlesen |
-| Handy-Anzeige | Übersetzungen zusätzlich im Handy-Browser (Adresse steht nach Start im Textfeld) |
+| aktiv | Diese Richtung beim Start mitlaufen lassen. Beide Richtungen können gleichzeitig laufen. |
+| Mindest-Lautstärke | Gibt es für jede Richtung einzeln. Ab dieser Lautstärke gilt etwas als Sprache. Der **Pegel**-Balken darunter zeigt live, wie laut es gerade ist. Regler so stellen, dass „● Sprache“ bei Stimmen aufleuchtet, aber nicht bei reinem Spielsound. Wirkt sofort, auch während es läuft. |
+| am PC vorlesen | Übersetzung der Mitspieler mit der Windows-Stimme vorlesen |
+| Handy-Anzeige | Übersetzungen der Mitspieler zusätzlich im Handy-Browser (Adresse steht nach Start im Textfeld) |
 | Immer im Vordergrund | Fenster bleibt über anderen Fenstern. Klappt über Spielen nur im **Fenster-** oder **randlosen Fenstermodus**, nicht im exklusiven Vollbild. |
 
 ## Schritt 4: Testen
@@ -92,6 +96,70 @@ Die Einstellungen werden in der Datei `.env` neben der `.exe` gespeichert,
    liest vor.
 
 Funktioniert das, dann im Spiel ausprobieren.
+
+---
+
+## Gegenrichtung: deine Stimme übersetzt an die Mitspieler
+
+Du sprichst Deutsch, die Mitspieler hören eine Windows-Stimme in ihrer Sprache.
+
+```
+Dein Mikrofon → App (Groq + DeepL + Windows-Stimme) → „CABLE Input“
+                                                         ║ (virtuelles Kabel)
+Spiel / Discord nimmt als Mikrofon ◄════════════════ „CABLE Output“
+```
+
+### 1. VB-Cable installieren (einmalig, kostenlos)
+1. Auf **vb-audio.com** → „VB-CABLE Virtual Audio Device“ die ZIP-Datei für
+   Windows herunterladen und entpacken.
+2. **Rechtsklick auf `VBCABLE_Setup_x64.exe` → „Als Administrator ausführen“**
+   → „Install Driver“.
+3. **PC neu starten.**
+4. Danach prüfen: Windows-Einstellungen → System → Sound.
+   - **Ausgabe** muss weiter dein Headset/Lautsprecher sein.
+     (Manchmal stellt sich VB-Cable selbst als Standard ein – dann hörst du nichts mehr.)
+   - **Eingabe** bleibt dein echtes Mikrofon.
+
+### 2. Im Spiel bzw. in Discord
+- Als **Mikrofon / Eingabegerät**: **„CABLE Output (VB-Audio Virtual Cable)“** wählen.
+- **Sprachaktivierung** statt Push-to-Talk verwenden, sonst müsstest du die
+  Taste gedrückt halten, während die App spricht.
+- Falls die Ansage abgehackt oder gar nicht ankommt: Rauschunterdrückung des
+  Voice-Chats (bei Discord z. B. „Krisp“) testweise ausschalten.
+
+### 3. In der App
+Im Bereich **„Ich → Mitspieler“**:
+- **aktiv** anhaken.
+- **Mein Mikrofon**: dein echtes Headset-Mikrofon (nicht „CABLE Output“!).
+- **Übersetzen nach**: `AUTO` nimmt die Sprache, die die Mitspieler zuletzt
+  gesprochen haben (am Anfang Englisch). Oder fest z. B. `EN`.
+- **Ausgabe an**: **„CABLE Input (VB-Audio Virtual Cable)“**.
+- **Mindest-Lautstärke** so einstellen, dass „● Sprache“ nur leuchtet, wenn du redest.
+
+### Testen
+In Discord unter Einstellungen → Sprache & Video → „Mikrofontest“ bzw. im
+Voice-Chat-Test des Spiels: Wenn du etwas sagst, sollte nach ein paar Sekunden
+die übersetzte Windows-Stimme ankommen.
+
+### Wichtig zu wissen
+- **Die Mitspieler hören nur noch die übersetzte Stimme**, nicht mehr deine
+  echte. Wenn du wieder normal reden willst: im Spiel/Discord das Mikrofon
+  zurück auf dein Headset stellen.
+- Sprichst du schon in der Zielsprache, wird dein Satz ohne Übersetzung
+  vorgelesen, damit er trotzdem ankommt.
+- Kurze Sätze und kleine Pausen funktionieren am besten. Es dauert einige
+  Sekunden, bis die Ansage kommt.
+- **Headset empfohlen.** Mit Lautsprechern hört das Mikrofon die Ansagen mit;
+  die App hört zwar nicht zu, solange sie selbst am PC vorliest, aber Ton aus
+  dem Spiel kann trotzdem ins Mikrofon gelangen.
+- **Stimmen:** Windows braucht eine Stimme in der Zielsprache. Fehlt sie, spricht
+  die Standardstimme den fremden Text mit falscher Aussprache. Stimmen
+  hinzufügen: Einstellungen → Zeit und Sprache → Sprache und Region → Sprache
+  hinzufügen (mit **Sprachausgabe**). Achtung: Nicht jede so installierte Stimme
+  ist für die App sichtbar – das liegt an der älteren Windows-Sprachschnittstelle,
+  die die App nutzt. Welche Stimmen genau erscheinen, konnte ich nicht auf einem
+  echten Windows prüfen.
+- Beide Richtungen teilen sich das Groq-Gratis-Kontingent.
 
 ---
 
@@ -175,6 +243,10 @@ bei reinem Spielsound. Setze `VOLUME_THRESHOLD` knapp über den Spielsound.
 | „OpenAI-Guthaben aufgebraucht“ | Nur bei OpenAI: unter platform.openai.com → Billing aufladen |
 | Übersetzt ständig Spielgeräusche | „Mindest-Lautstärke“ höher stellen |
 | Sätze werden mitten drin zerschnitten | `SILENCE_SECONDS` erhöhen, z. B. auf `1.2` |
+| „Ausgabegerät … nicht gefunden. Ist VB-Cable installiert?“ | VB-Cable installieren und PC neu starten, dann „Neu laden“ und bei „Ausgabe an“ CABLE Input wählen |
+| Mitspieler hören nichts | Im Spiel/Discord als Mikrofon „CABLE Output“ wählen; Sprachaktivierung statt Push-to-Talk |
+| Nach VB-Cable-Installation hörst du nichts mehr | Windows-Sound-Ausgabe zurück auf dein Headset stellen |
+| Ansage in falscher Aussprache | Es fehlt eine Windows-Stimme für die Zielsprache (siehe Gegenrichtung → Stimmen) |
 | Nichts passiert, Pegel bleibt leer | Falsches Gerät gewählt – das Gerät nehmen, über das du den Ton hörst |
 | Fehler mit `numpy`/`fromstring` beim Start | `python -m pip install --upgrade soundcard` |
 | Fehler „model not found“ | Das Modell gibt es beim Anbieter nicht mehr: in `.env` bei `STT_MODEL` ein aktuelles Whisper-Modell des Anbieters eintragen |
@@ -188,7 +260,6 @@ bei reinem Spielsound. Setze `VOLUME_THRESHOLD` knapp über den Spielsound.
 - Während die Übersetzung vorgelesen wird, hört das Programm nicht zu
   (sonst würde es sich selbst übersetzen). Was in dieser Zeit gesagt wird, fehlt.
 - Reden zwei Leute gleichzeitig, wird es ungenau.
-- Nur eine Richtung: Mitspieler → du. Deine eigene Stimme für andere zu
-  übersetzen ist ein späterer Schritt.
+- Die Windows-Stimmen klingen deutlich nach Computer.
 - Es wird nichts gespeichert; die Audio-Stücke werden aber an Groq (bzw. OpenAI) und der
   Text an DeepL geschickt.
