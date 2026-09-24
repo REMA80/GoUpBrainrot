@@ -13,6 +13,7 @@ from tkinter import messagebox, scrolledtext, ttk
 import translator as core
 
 DEFAULT_DEVICE = "(Windows-Standard)"
+PROVIDER_LABELS = {"groq": "Groq (Gratis-Kontingent)", "openai": "OpenAI (kostenpflichtig)"}
 SOURCES = {"loopback": "Lautsprecher / Kopfhörer (Mitspieler)", "mic": "Mikrofon"}
 # Zielsprachen, die DeepL unterstützt (Auswahl); eigene Codes können eingetippt werden.
 LANGUAGES = ["DE", "EN", "FR", "ES", "IT", "NL", "PL", "PT", "TR", "RU", "UK",
@@ -46,37 +47,49 @@ class App:
         top.pack(fill="x")
         top.columnconfigure(1, weight=1)
 
-        ttk.Label(top, text="OpenAI-Key:").grid(row=0, column=0, sticky="w", **pad)
-        self.openai_var = tk.StringVar(value=self.cfg["openai_key"])
-        ttk.Entry(top, textvariable=self.openai_var, show="•").grid(
-            row=0, column=1, columnspan=2, sticky="ew", **pad)
+        ttk.Label(top, text="Spracherkennung:").grid(row=0, column=0, sticky="w", **pad)
+        self.provider_var = tk.StringVar(value=PROVIDER_LABELS[self.cfg["stt_provider"]])
+        provider_box = ttk.Combobox(top, textvariable=self.provider_var, state="readonly",
+                                    values=list(PROVIDER_LABELS.values()))
+        provider_box.grid(row=0, column=1, columnspan=2, sticky="ew", **pad)
+        provider_box.bind("<<ComboboxSelected>>", lambda e: self.show_stt_key())
 
-        ttk.Label(top, text="DeepL-Key:").grid(row=1, column=0, sticky="w", **pad)
+        # Ein Eingabefeld, das je nach Anbieter den Groq- oder den OpenAI-Key zeigt;
+        # beide Keys bleiben gespeichert, damit man hin- und herwechseln kann.
+        self.stt_key_label = ttk.Label(top)
+        self.stt_key_label.grid(row=1, column=0, sticky="w", **pad)
+        self.key_vars = {p: tk.StringVar(value=self.cfg[core.STT_PROVIDERS[p]["key"]])
+                         for p in core.STT_PROVIDERS}
+        self.stt_key_entry = ttk.Entry(top, show="•")
+        self.stt_key_entry.grid(row=1, column=1, columnspan=2, sticky="ew", **pad)
+        self.show_stt_key()
+
+        ttk.Label(top, text="DeepL-Key:").grid(row=2, column=0, sticky="w", **pad)
         self.deepl_var = tk.StringVar(value=self.cfg["deepl_key"])
         ttk.Entry(top, textvariable=self.deepl_var, show="•").grid(
-            row=1, column=1, columnspan=2, sticky="ew", **pad)
+            row=2, column=1, columnspan=2, sticky="ew", **pad)
 
-        ttk.Label(top, text="Übersetzen nach:").grid(row=2, column=0, sticky="w", **pad)
+        ttk.Label(top, text="Übersetzen nach:").grid(row=3, column=0, sticky="w", **pad)
         self.lang_var = tk.StringVar(value=self.cfg["target_lang"])
         ttk.Combobox(top, textvariable=self.lang_var, values=LANGUAGES, width=8).grid(
-            row=2, column=1, sticky="w", **pad)
+            row=3, column=1, sticky="w", **pad)
 
-        ttk.Label(top, text="Zuhören bei:").grid(row=3, column=0, sticky="w", **pad)
+        ttk.Label(top, text="Zuhören bei:").grid(row=4, column=0, sticky="w", **pad)
         self.source_var = tk.StringVar(value=SOURCES.get(self.cfg["source"], SOURCES["loopback"]))
         source_box = ttk.Combobox(top, textvariable=self.source_var, state="readonly",
                                   values=list(SOURCES.values()))
-        source_box.grid(row=3, column=1, columnspan=2, sticky="ew", **pad)
+        source_box.grid(row=4, column=1, columnspan=2, sticky="ew", **pad)
         source_box.bind("<<ComboboxSelected>>", lambda e: self.refresh_devices())
 
-        ttk.Label(top, text="Gerät:").grid(row=4, column=0, sticky="w", **pad)
+        ttk.Label(top, text="Gerät:").grid(row=5, column=0, sticky="w", **pad)
         self.device_var = tk.StringVar(value=self.cfg["device"] or DEFAULT_DEVICE)
         self.device_box = ttk.Combobox(top, textvariable=self.device_var, state="readonly")
-        self.device_box.grid(row=4, column=1, sticky="ew", **pad)
-        ttk.Button(top, text="Neu laden", command=self.refresh_devices).grid(row=4, column=2, **pad)
+        self.device_box.grid(row=5, column=1, sticky="ew", **pad)
+        ttk.Button(top, text="Neu laden", command=self.refresh_devices).grid(row=5, column=2, **pad)
 
-        ttk.Label(top, text="Mindest-Lautstärke:").grid(row=5, column=0, sticky="w", **pad)
+        ttk.Label(top, text="Mindest-Lautstärke:").grid(row=6, column=0, sticky="w", **pad)
         slider_row = ttk.Frame(top)
-        slider_row.grid(row=5, column=1, columnspan=2, sticky="ew", **pad)
+        slider_row.grid(row=6, column=1, columnspan=2, sticky="ew", **pad)
         slider_row.columnconfigure(0, weight=1)
         self.threshold_var = tk.DoubleVar(value=self.cfg["threshold"] * SLIDER_SCALE)
         ttk.Scale(slider_row, from_=1, to=100, variable=self.threshold_var,
@@ -84,9 +97,9 @@ class App:
         self.threshold_label = ttk.Label(slider_row, width=7)
         self.threshold_label.grid(row=0, column=1, padx=(8, 0))
 
-        ttk.Label(top, text="Pegel:").grid(row=6, column=0, sticky="w", **pad)
+        ttk.Label(top, text="Pegel:").grid(row=7, column=0, sticky="w", **pad)
         level_row = ttk.Frame(top)
-        level_row.grid(row=6, column=1, columnspan=2, sticky="ew", **pad)
+        level_row.grid(row=7, column=1, columnspan=2, sticky="ew", **pad)
         level_row.columnconfigure(0, weight=1)
         self.level_bar = ttk.Progressbar(level_row, maximum=100)
         self.level_bar.grid(row=0, column=0, sticky="ew")
@@ -94,7 +107,7 @@ class App:
         self.level_label.grid(row=0, column=1, padx=(8, 0))
 
         options = ttk.Frame(top)
-        options.grid(row=7, column=0, columnspan=3, sticky="w", **pad)
+        options.grid(row=8, column=0, columnspan=3, sticky="w", **pad)
         self.speak_var = tk.BooleanVar(value=self.cfg["speak"])
         ttk.Checkbutton(options, text="Am PC vorlesen", variable=self.speak_var).pack(side="left")
         self.phone_var = tk.BooleanVar(value=self.cfg["phone_view"])
@@ -105,7 +118,7 @@ class App:
                         command=self.on_topmost).pack(side="left")
 
         actions = ttk.Frame(top)
-        actions.grid(row=8, column=0, columnspan=3, sticky="ew", **pad)
+        actions.grid(row=9, column=0, columnspan=3, sticky="ew", **pad)
         self.start_button = ttk.Button(actions, text="▶ Start", command=self.toggle)
         self.start_button.pack(side="left")
         self.status = ttk.Label(actions, text="Gestoppt")
@@ -116,11 +129,22 @@ class App:
         self.output.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         self.on_threshold()
-        if not (self.cfg["openai_key"] and self.cfg["deepl_key"]):
+        if not (self.key_vars[self.cfg["stt_provider"]].get() and self.cfg["deepl_key"]):
             self.write("Willkommen! Trage oben deine API-Keys ein und drücke Start.\n"
                        "Wie du die Keys bekommst, steht in der README (Schritt 1).\n")
 
     # ------------------------------------------------------------ Aktionen
+
+    def provider_key(self):
+        for key, label in PROVIDER_LABELS.items():
+            if label == self.provider_var.get():
+                return key
+        return "groq"
+
+    def show_stt_key(self):
+        provider = self.provider_key()
+        self.stt_key_label.config(text=core.STT_PROVIDERS[provider]["name"] + "-Key:")
+        self.stt_key_entry.config(textvariable=self.key_vars[provider])
 
     def source_key(self):
         for key, label in SOURCES.items():
@@ -150,7 +174,9 @@ class App:
     def collect(self):
         device = self.device_var.get()
         self.cfg.update(
-            openai_key=self.openai_var.get().strip(),
+            stt_provider=self.provider_key(),
+            groq_key=self.key_vars["groq"].get().strip(),
+            openai_key=self.key_vars["openai"].get().strip(),
             deepl_key=self.deepl_var.get().strip(),
             target_lang=(self.lang_var.get().strip().upper() or "DE"),
             source=self.source_key(),

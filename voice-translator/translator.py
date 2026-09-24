@@ -4,7 +4,7 @@ Voice-Chat-Übersetzer (Prototyp, Windows)
 Ablauf:
   Ton aufnehmen (Lautsprecher-Loopback oder Mikrofon)
   -> bei Sprechpause ein Stück abschneiden
-  -> OpenAI Speech-to-Text (Sprache wird automatisch erkannt)
+  -> Speech-to-Text über Groq oder OpenAI (Sprache wird automatisch erkannt)
   -> DeepL übersetzt in die Zielsprache
   -> Text im Fenster + Windows-Sprachausgabe
 
@@ -62,8 +62,18 @@ def env_path():
     return os.path.join(app_dir(), ".env")
 
 
+# Anbieter für Speech-to-Text. Beide sprechen dieselbe (OpenAI-)Schnittstelle,
+# Groq braucht nur eine andere Adresse und hat ein Gratis-Kontingent.
+STT_PROVIDERS = {
+    "groq": {"name": "Groq", "key": "groq_key",
+             "base_url": "https://api.groq.com/openai/v1", "model": "whisper-large-v3-turbo"},
+    "openai": {"name": "OpenAI", "key": "openai_key",
+               "base_url": None, "model": "whisper-1"},
+}
+
 # Reihenfolge und Namen der Einträge in .env
 ENV_NAMES = {
+    "stt_provider": "STT_PROVIDER", "groq_key": "GROQ_API_KEY",
     "openai_key": "OPENAI_API_KEY", "deepl_key": "DEEPL_API_KEY",
     "target_lang": "TARGET_LANG", "source": "AUDIO_SOURCE", "device": "AUDIO_DEVICE",
     "speak": "SPEAK", "tts_rate": "TTS_RATE", "threshold": "VOLUME_THRESHOLD",
@@ -93,7 +103,14 @@ def load_config():
             print(f"Warnung: {name} in .env ist keine Zahl, nehme {default}.")
             return float(default)
 
+    provider = getenv("STT_PROVIDER", "groq").strip().lower()
+    if provider not in STT_PROVIDERS:
+        print(f"Warnung: STT_PROVIDER '{provider}' unbekannt, nehme groq.")
+        provider = "groq"
+
     return {
+        "stt_provider": provider,
+        "groq_key": getenv("GROQ_API_KEY", "").strip(),
         "openai_key": getenv("OPENAI_API_KEY", "").strip(),
         "deepl_key": getenv("DEEPL_API_KEY", "").strip(),
         "target_lang": getenv("TARGET_LANG", "DE").strip().upper(),
@@ -104,7 +121,8 @@ def load_config():
         "silence": num("SILENCE_SECONDS", "0.8"),
         "min_speech": num("MIN_SPEECH_SECONDS", "0.5"),
         "max_speech": num("MAX_SPEECH_SECONDS", "15"),
-        "stt_model": getenv("STT_MODEL", "whisper-1").strip(),
+        # Leer = Standardmodell des gewählten Anbieters
+        "stt_model": getenv("STT_MODEL", "").strip(),
         "tts_rate": int(num("TTS_RATE", "1")),
         "phone_view": getenv("PHONE_VIEW", "1").strip() not in ("0", "nein", "no", "false"),
         "phone_port": int(num("PHONE_PORT", "8765")),
@@ -327,7 +345,9 @@ class Pipeline:
 
         self.cfg = cfg
         self.log = log
-        self.openai = OpenAI(api_key=cfg["openai_key"])
+        stt = STT_PROVIDERS[cfg["stt_provider"]]
+        self.stt_client = OpenAI(api_key=cfg[stt["key"]], base_url=stt["base_url"])
+        self.stt_model = cfg["stt_model"] or stt["model"]
         self.deepl = deepl.Translator(cfg["deepl_key"])
         self.target = deepl_target(cfg["target_lang"])
         self.target_base = cfg["target_lang"].split("-")[0]
@@ -336,8 +356,8 @@ class Pipeline:
         self.phone = None
 
     def transcribe(self, wav):
-        result = self.openai.audio.transcriptions.create(
-            model=self.cfg["stt_model"],
+        result = self.stt_client.audio.transcriptions.create(
+            model=self.stt_model,
             file=("audio.wav", wav, "audio/wav"),
         )
         return (result.text or "").strip()
@@ -408,9 +428,11 @@ def explain_error(e):
     name = type(e).__name__
     msg = str(e)
     if name == "AuthenticationError":
-        return "OpenAI-Key ungültig. Key prüfen."
-    if name == "RateLimitError" and "quota" in msg.lower():
+        return "Key für die Spracherkennung (Groq/OpenAI) ungültig. Key prüfen."
+    if name == "RateLimitError" and "insufficient_quota" in msg:
         return "OpenAI-Guthaben aufgebraucht oder nicht aufgeladen (platform.openai.com -> Billing)."
+    if name == "RateLimitError":
+        return "Gratis-Limit der Spracherkennung erreicht. Kurz warten, dann geht es weiter."
     if name == "AuthorizationException":
         return "DeepL-Key ungültig. Key prüfen."
     if name == "QuotaExceededException":
@@ -444,7 +466,8 @@ class Engine:
         self.jobs = queue.Queue(maxsize=4)
 
     def missing_keys(self):
-        return [name for key, name in (("openai_key", "OpenAI-Key"), ("deepl_key", "DeepL-Key"))
+        stt = STT_PROVIDERS[self.cfg["stt_provider"]]
+        return [name for key, name in ((stt["key"], stt["name"] + "-Key"), ("deepl_key", "DeepL-Key"))
                 if not self.cfg[key]]
 
     def set_threshold(self, value):
