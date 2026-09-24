@@ -29,38 +29,76 @@ Prototyp, keine fertige App.
 
 > Keys sind wie Passwörter: nirgends posten, nicht weitergeben.
 
-## Schritt 2: Python installieren
+## Schritt 2: Windows-App herunterladen (empfohlen)
 
-1. **python.org → Downloads** → aktuelle Python-3-Version für Windows laden.
-2. Beim Installieren unten das Häkchen **„Add python.exe to PATH“** setzen!
-3. Ordner `voice-translator` auf deinen PC holen (z. B. auf GitHub
-   „Code → Download ZIP“, dann entpacken).
-4. Im Ordner doppelt auf **`install.bat`** klicken. Das installiert alle
-   Pakete und legt die Datei `.env` an.
+Die App wird von GitHub automatisch gebaut. Python brauchst du dafür **nicht**.
 
-## Schritt 3: Keys eintragen
+1. Auf GitHub dein Repository öffnen und oben auf den Reiter **„Actions“** klicken.
+2. Links **„Voice-Übersetzer Windows-App bauen“** wählen und dann den obersten
+   Lauf mit grünem Haken anklicken.
+3. Ganz unten bei **„Artifacts“** auf **VoiceTranslator-Windows** klicken.
+   Es wird eine ZIP-Datei heruntergeladen (dafür musst du bei GitHub angemeldet sein).
+4. ZIP in einen **eigenen Ordner** entpacken, z. B. `Dokumente\VoiceTranslator`.
+   Dort speichert die App später auch deine Einstellungen.
+5. **`VoiceTranslator.exe`** doppelklicken.
+   - Windows zeigt wahrscheinlich **„Der Computer wurde durch Windows geschützt“**.
+     Das liegt daran, dass die App nicht kostenpflichtig signiert ist.
+     Auf **„Weitere Informationen“** und dann **„Trotzdem ausführen“** klicken.
+   - Meldet dein Virenscanner die Datei, ist das bei solchen selbst gebauten
+     Python-Apps ein bekannter Fehlalarm. Du kannst den Quellcode hier im
+     Ordner selbst prüfen oder prüfen lassen.
 
-1. Die Datei **`.env`** im Ordner mit Notepad öffnen
-   (Rechtsklick → Öffnen mit → Editor). Falls du sie nicht siehst: im Explorer
-   unter „Anzeigen“ die **Dateinamenerweiterungen** und **ausgeblendete Elemente** einschalten.
-2. Hinter `OPENAI_API_KEY=` und `DEEPL_API_KEY=` die Keys einfügen,
-   ohne Leerzeichen und ohne Anführungszeichen. Speichern.
+Der Start dauert ein paar Sekunden, weil die App sich erst entpackt.
+
+## Schritt 3: Keys eintragen und starten
+
+1. Im Fenster oben **OpenAI-Key** und **DeepL-Key** einfügen (Strg+V).
+2. **Übersetzen nach**: deine Sprache, z. B. `DE`.
+3. **Zuhören bei**: „Lautsprecher / Kopfhörer (Mitspieler)“.
+   **Gerät**: das, worüber du den Spiel-/Voice-Chat-Ton hörst, z. B. dein Headset.
+4. **▶ Start** drücken.
+
+Die Einstellungen werden in der Datei `.env` neben der `.exe` gespeichert,
+**inklusive deiner Keys**. Den Ordner deshalb nicht weitergeben.
+
+### Die Knöpfe im Fenster
+
+| Element | Bedeutung |
+|---|---|
+| Mindest-Lautstärke | Ab dieser Lautstärke gilt etwas als Sprache. Der **Pegel**-Balken darunter zeigt live, wie laut es gerade ist. Regler so stellen, dass „● Sprache“ bei Stimmen aufleuchtet, aber nicht bei reinem Spielsound. Wirkt sofort, auch während es läuft. |
+| Am PC vorlesen | Übersetzung mit der Windows-Stimme vorlesen |
+| Handy-Anzeige | Übersetzungen zusätzlich im Handy-Browser (Adresse steht nach Start im Textfeld) |
+| Immer im Vordergrund | Fenster bleibt über anderen Fenstern. Klappt über Spielen nur im **Fenster-** oder **randlosen Fenstermodus**, nicht im exklusiven Vollbild. |
 
 ## Schritt 4: Testen
 
-1. **`start.bat`** doppelklicken.
+1. **▶ Start** drücken.
 2. Im Browser ein Video in einer Fremdsprache abspielen (z. B. ein englisches
    oder spanisches YouTube-Video).
 3. Nach jedem Satz erscheint Original + Übersetzung, und die Windows-Stimme
-   liest vor. Beenden mit **Strg+C** oder Fenster schließen.
+   liest vor.
 
 Funktioniert das, dann im Spiel ausprobieren.
 
 ---
 
+## Alternative: als Python-Skript starten
+
+Falls die `.exe` nicht startet oder du am Code etwas ändern willst.
+
+1. **python.org → Downloads** → aktuelle Python-3-Version für Windows laden.
+   Beim Installieren das Häkchen **„Add python.exe to PATH“** setzen!
+2. Ordner `voice-translator` auf den PC holen (auf GitHub „Code → Download ZIP“).
+3. **`install.bat`** doppelklicken (installiert die Pakete).
+4. **`start-fenster.bat`** startet dasselbe Fenster wie die `.exe`.
+   **`start.bat`** startet die Konsolen-Version; die liest ihre Einstellungen aus
+   `.env` (Vorlage: `.env.example`, mit Notepad bearbeiten).
+
+---
+
 ## Handy als zweiter Bildschirm (optional)
 
-Beim Start zeigt das Fenster eine Zeile wie
+Nach dem Start steht im Textfeld eine Zeile wie
 `Handy-Anzeige: http://192.168.178.23:8765`.
 
 1. Handy mit **demselben WLAN** verbinden wie den PC (nicht mit dem Gäste-WLAN).
@@ -72,7 +110,7 @@ Beim Start zeigt das Fenster eine Zeile wie
 Neue Übersetzungen erscheinen oben und sind blau umrandet.
 
 **Tipp gegen Rückkopplung:** Oben rechts auf der Handy-Seite **„Vorlesen: an“**
-tippen und in `.env` `SPEAK=0` setzen. Dann liest das Handy vor statt der PC.
+tippen und in der App den Haken **„Am PC vorlesen“** entfernen. Dann liest das Handy vor statt der PC.
 Der PC hört sich nicht mehr selbst, und du verpasst nichts, während vorgelesen wird.
 
 Wenn das Handy „keine Verbindung zum PC“ anzeigt:
@@ -84,11 +122,11 @@ Wenn das Handy „keine Verbindung zum PC“ anzeigt:
 - Stimmt die Adresse? Sie kann sich ändern, wenn der Router dem PC eine neue gibt.
 
 Die Seite zeigt nur Übersetzungen an, keine Keys. Jeder in deinem WLAN, der die
-Adresse kennt, könnte sie aber mitlesen. Ausschalten: `PHONE_VIEW=0`.
+Adresse kennt, könnte sie aber mitlesen. Ausschalten: Haken **„Handy-Anzeige“** entfernen.
 
 ---
 
-## Einstellungen (in `.env`)
+## Weitere Einstellungen (in `.env`, für Fortgeschrittene)
 
 | Einstellung | Bedeutung |
 |---|---|
@@ -102,7 +140,8 @@ Adresse kennt, könnte sie aber mitlesen. Ausschalten: `PHONE_VIEW=0`.
 | `PHONE_VIEW` | `1` = Handy-Anzeige an, `0` = aus |
 | `PHONE_PORT` | Port der Handy-Anzeige (Standard `8765`). Nur ändern, wenn beim Start ein Fehler kommt |
 
-### Lautstärke-Schwelle einstellen
+### Lautstärke-Schwelle einstellen (Konsolen-Version)
+In der App: Regler „Mindest-Lautstärke“ (siehe oben). In der Konsolen-Version:
 **`pegel.bat`** doppelklicken. Du siehst live Zahlen. Lass jemanden reden
 bzw. spiel ein Video ab und schau, welche Werte bei Sprache kommen und welche
 bei reinem Spielsound. Setze `VOLUME_THRESHOLD` knapp über den Spielsound.
@@ -113,13 +152,16 @@ bei reinem Spielsound. Setze `VOLUME_THRESHOLD` knapp über den Spielsound.
 
 | Meldung / Problem | Lösung |
 |---|---|
+| „Der Computer wurde durch Windows geschützt“ | „Weitere Informationen“ → „Trotzdem ausführen“ |
+| `.exe` startet gar nicht / verschwindet sofort | Die Python-Variante probieren (`start.bat`), die zeigt die Fehlermeldung an – und mir schicken |
+| „FEHLER bei der Tonaufnahme“ | Anderes Gerät in der Liste wählen, „Neu laden“ drücken |
 | `python` wird nicht gefunden | Python neu installieren, Häkchen „Add to PATH“ setzen |
 | `Fehlendes Paket` | `install.bat` erneut ausführen |
-| `OpenAI-Key ungültig` / `DeepL-Key ungültig` | Key in `.env` prüfen (keine Leerzeichen) |
+| `OpenAI-Key ungültig` / `DeepL-Key ungültig` | Key neu kopieren und einfügen (keine Leerzeichen) |
 | `OpenAI-Guthaben aufgebraucht` | Unter platform.openai.com → Billing aufladen |
-| Übersetzt ständig Spielgeräusche | `VOLUME_THRESHOLD` erhöhen (mit `pegel.bat` ermitteln) |
+| Übersetzt ständig Spielgeräusche | „Mindest-Lautstärke“ höher stellen |
 | Sätze werden mitten drin zerschnitten | `SILENCE_SECONDS` erhöhen, z. B. auf `1.2` |
-| Nichts passiert | Richtiges Ausgabegerät? `AUDIO_DEVICE` setzen (Namen mit `--geraete`) |
+| Nichts passiert, Pegel bleibt leer | Falsches Gerät gewählt – das Gerät nehmen, über das du den Ton hörst |
 | Fehler mit `numpy`/`fromstring` beim Start | `python -m pip install --upgrade soundcard` |
 | `whisper-1` nicht (mehr) verfügbar | In `.env` bei `STT_MODEL` ein aktuelles Transkriptionsmodell von OpenAI eintragen |
 | Keine deutsche Stimme | Windows-Einstellungen → Zeit und Sprache → Sprache → Deutsch → Sprachausgabe installieren |

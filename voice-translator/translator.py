@@ -46,41 +46,86 @@ HALLUCINATIONS = {
 }
 
 
+def app_dir():
+    """Ordner der .exe bzw. des Skripts - dort liegt die .env mit den Keys."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def resource_path(name):
+    """Mitgelieferte Dateien (phone.html); in der .exe liegen sie in einem Temp-Ordner."""
+    return os.path.join(getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__))), name)
+
+
+def env_path():
+    return os.path.join(app_dir(), ".env")
+
+
+# Reihenfolge und Namen der Einträge in .env
+ENV_NAMES = {
+    "openai_key": "OPENAI_API_KEY", "deepl_key": "DEEPL_API_KEY",
+    "target_lang": "TARGET_LANG", "source": "AUDIO_SOURCE", "device": "AUDIO_DEVICE",
+    "speak": "SPEAK", "tts_rate": "TTS_RATE", "threshold": "VOLUME_THRESHOLD",
+    "silence": "SILENCE_SECONDS", "min_speech": "MIN_SPEECH_SECONDS",
+    "max_speech": "MAX_SPEECH_SECONDS", "stt_model": "STT_MODEL",
+    "phone_view": "PHONE_VIEW", "phone_port": "PHONE_PORT",
+}
+
+
 def load_config():
+    values = {}
     try:
-        from dotenv import load_dotenv
-        load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+        from dotenv import dotenv_values
+        if os.path.exists(env_path()):
+            values = dotenv_values(env_path())
     except ImportError:
         pass
 
+    def getenv(name, default=""):
+        value = values.get(name)
+        return value if value is not None else os.getenv(name, default)
+
     def num(name, default):
         try:
-            return float(os.getenv(name, default))
+            return float(getenv(name, default))
         except ValueError:
             print(f"Warnung: {name} in .env ist keine Zahl, nehme {default}.")
             return float(default)
 
     return {
-        "openai_key": os.getenv("OPENAI_API_KEY", "").strip(),
-        "deepl_key": os.getenv("DEEPL_API_KEY", "").strip(),
-        "target_lang": os.getenv("TARGET_LANG", "DE").strip().upper(),
-        "source": os.getenv("AUDIO_SOURCE", "loopback").strip().lower(),
-        "device": os.getenv("AUDIO_DEVICE", "").strip(),
-        "speak": os.getenv("SPEAK", "1").strip() not in ("0", "nein", "no", "false"),
+        "openai_key": getenv("OPENAI_API_KEY", "").strip(),
+        "deepl_key": getenv("DEEPL_API_KEY", "").strip(),
+        "target_lang": getenv("TARGET_LANG", "DE").strip().upper(),
+        "source": getenv("AUDIO_SOURCE", "loopback").strip().lower(),
+        "device": getenv("AUDIO_DEVICE", "").strip(),
+        "speak": getenv("SPEAK", "1").strip() not in ("0", "nein", "no", "false"),
         "threshold": num("VOLUME_THRESHOLD", "0.01"),
         "silence": num("SILENCE_SECONDS", "0.8"),
         "min_speech": num("MIN_SPEECH_SECONDS", "0.5"),
         "max_speech": num("MAX_SPEECH_SECONDS", "15"),
-        "stt_model": os.getenv("STT_MODEL", "whisper-1").strip(),
+        "stt_model": getenv("STT_MODEL", "whisper-1").strip(),
         "tts_rate": int(num("TTS_RATE", "1")),
-        "phone_view": os.getenv("PHONE_VIEW", "1").strip() not in ("0", "nein", "no", "false"),
+        "phone_view": getenv("PHONE_VIEW", "1").strip() not in ("0", "nein", "no", "false"),
         "phone_port": int(num("PHONE_PORT", "8765")),
     }
 
 
+def save_config(cfg):
+    lines = ["# Von der App gespeichert. Enthaelt deine API-Keys - nicht weitergeben!"]
+    for key, name in ENV_NAMES.items():
+        value = cfg[key]
+        if isinstance(value, bool):
+            value = "1" if value else "0"
+        value = str(value).replace("\\", "\\\\").replace('"', '\\"')
+        lines.append(f'{name}="{value}"')
+    with open(env_path(), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
 # ---------------------------------------------------------------- Audio
 
-def find_input(source, device_filter):
+def find_input(source, device_filter, log=print):
     """Liefert das soundcard-Aufnahmegerät für Loopback oder Mikrofon."""
     import soundcard as sc
 
@@ -91,7 +136,7 @@ def find_input(source, device_filter):
             for m in mics:
                 if wanted in m.name.lower():
                     return m
-            print(f"Kein Mikrofon mit '{device_filter}' im Namen gefunden, nehme Standard.")
+            log(f"Kein Mikrofon mit '{device_filter}' im Namen gefunden, nehme Standard.")
         return sc.default_microphone()
 
     speaker = sc.default_speaker()
@@ -101,8 +146,15 @@ def find_input(source, device_filter):
                 speaker = s
                 break
         else:
-            print(f"Kein Ausgabegerät mit '{device_filter}' im Namen gefunden, nehme Standard.")
+            log(f"Kein Ausgabegerät mit '{device_filter}' im Namen gefunden, nehme Standard.")
     return sc.get_microphone(id=str(speaker.name), include_loopback=True)
+
+
+def device_names(source):
+    import soundcard as sc
+
+    devices = sc.all_microphones() if source == "mic" else sc.all_speakers()
+    return [d.name for d in devices]
 
 
 def list_devices():
@@ -195,7 +247,8 @@ class PhoneView:
         self.items = deque(maxlen=50)
         self.next_id = 1
         self.lock = threading.Lock()
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "phone.html"), "rb") as f:
+        self.server = None
+        with open(resource_path("phone.html"), "rb") as f:
             self.page = f.read()
 
     def add(self, source, original, translated, target):
@@ -237,9 +290,15 @@ class PhoneView:
             def log_message(self, *args):
                 pass  # keine Zugriffs-Logs im Konsolenfenster
 
-        server = ThreadingHTTPServer(("0.0.0.0", self.port), Handler)
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.server = ThreadingHTTPServer(("0.0.0.0", self.port), Handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
         return f"http://{lan_ip()}:{self.port}"
+
+    def stop(self):
+        if self.server:
+            self.server.shutdown()
+            self.server.server_close()
+            self.server = None
 
 
 def lan_ip():
@@ -262,11 +321,12 @@ def deepl_target(lang):
 
 
 class Pipeline:
-    def __init__(self, cfg):
+    def __init__(self, cfg, log=print):
         import deepl
         from openai import OpenAI
 
         self.cfg = cfg
+        self.log = log
         self.openai = OpenAI(api_key=cfg["openai_key"])
         self.deepl = deepl.Translator(cfg["deepl_key"])
         self.target = deepl_target(cfg["target_lang"])
@@ -307,9 +367,12 @@ class Pipeline:
             subprocess.run(
                 ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
                 env=env, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW,
+                # In der .exe ohne Konsole gibt es keine Standard-Ein/Ausgabe;
+                # ohne diese Umleitung scheitert der Start von PowerShell.
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         except Exception as e:
-            print(f"   (Sprachausgabe fehlgeschlagen: {e})")
+            self.log(f"   (Sprachausgabe fehlgeschlagen: {e})")
         finally:
             # Kurz nachlaufen lassen, damit der Rest der Ansage nicht mit aufgenommen wird.
             self.mute_until = time.monotonic() + 0.4
@@ -328,13 +391,13 @@ class Pipeline:
         stamp = datetime.now().strftime("%H:%M:%S")
 
         if source.split("-")[0] == self.target_base:
-            print(f"[{stamp}] ({source}) {text}")
+            self.log(f"[{stamp}] ({source}) {text}")
             if self.phone:
                 self.phone.add(source, text, None, self.target_base)
             return
 
-        print(f"[{stamp}] {source}: {text}")
-        print(f"         {self.target_base}: {translated}   ({took:.1f}s)")
+        self.log(f"[{stamp}] {source}: {text}")
+        self.log(f"         {self.target_base}: {translated}   ({took:.1f}s)")
         if self.phone:
             self.phone.add(source, text, translated, self.target_base)
         if self.cfg["speak"]:
@@ -345,11 +408,11 @@ def explain_error(e):
     name = type(e).__name__
     msg = str(e)
     if name == "AuthenticationError":
-        return "OpenAI-Key ungültig. OPENAI_API_KEY in .env prüfen."
+        return "OpenAI-Key ungültig. Key prüfen."
     if name == "RateLimitError" and "quota" in msg.lower():
         return "OpenAI-Guthaben aufgebraucht oder nicht aufgeladen (platform.openai.com -> Billing)."
     if name == "AuthorizationException":
-        return "DeepL-Key ungültig. DEEPL_API_KEY in .env prüfen."
+        return "DeepL-Key ungültig. Key prüfen."
     if name == "QuotaExceededException":
         return "DeepL-Monatskontingent aufgebraucht."
     if name in ("APIConnectionError", "ConnectionException"):
@@ -357,16 +420,101 @@ def explain_error(e):
     return f"{name}: {msg}"
 
 
-def worker(pipeline, jobs):
-    while True:
-        segment = jobs.get()
+def com_init():
+    """soundcard braucht unter Windows COM in jedem Thread, der Audiogeräte öffnet."""
+    if sys.platform == "win32":
+        import ctypes
+        # Rückgabewert egal: "schon initialisiert" ist auch in Ordnung.
+        ctypes.windll.ole32.CoInitializeEx(None, 0)
+
+
+class Engine:
+    """Aufnahme + Übersetzung in Hintergrund-Threads; von Konsole und Fenster genutzt."""
+
+    def __init__(self, cfg, log=print, on_level=None):
+        self.cfg = cfg
+        self.log = log
+        self.on_level = on_level
+        self.stop_event = threading.Event()
+        self.segmenter = SpeechSegmenter(cfg["threshold"], cfg["silence"],
+                                         cfg["min_speech"], cfg["max_speech"])
+        self.pipeline = None
+        self.phone_url = None
+        self.thread = None
+        self.jobs = queue.Queue(maxsize=4)
+
+    def missing_keys(self):
+        return [name for key, name in (("openai_key", "OpenAI-Key"), ("deepl_key", "DeepL-Key"))
+                if not self.cfg[key]]
+
+    def set_threshold(self, value):
+        self.cfg["threshold"] = value
+        self.segmenter.threshold = value
+
+    def start(self):
+        self.pipeline = Pipeline(self.cfg, log=self.log)
+        if self.cfg["phone_view"]:
+            self.pipeline.phone = PhoneView(self.cfg["phone_port"])
+            try:
+                self.phone_url = self.pipeline.phone.start()
+                self.log(f"Handy-Anzeige: {self.phone_url}  (Handy muss im selben WLAN sein)")
+            except OSError as e:
+                self.pipeline.phone = None
+                self.log(f"Handy-Anzeige konnte nicht starten ({e}). Anderen PHONE_PORT wählen.")
+        threading.Thread(target=self._work, daemon=True).start()
+        self.thread = threading.Thread(target=self._record, daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.stop_event.set()
+        if self.thread:
+            self.thread.join(timeout=2)
+        if self.pipeline and self.pipeline.phone:
+            self.pipeline.phone.stop()
+
+    def running(self):
+        return bool(self.thread and self.thread.is_alive())
+
+    def _work(self):
+        while not self.stop_event.is_set():
+            try:
+                segment = self.jobs.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            try:
+                self.pipeline.handle(segment)
+            except Exception as e:
+                self.log(f"   FEHLER: {explain_error(e)}")
+
+    def _record(self):
         try:
-            pipeline.handle(segment)
+            com_init()
+            mic = find_input(self.cfg["source"], self.cfg["device"], self.log)
+            self.log(f"Höre auf: {mic.name}")
+            self.log(f"Übersetze automatisch erkannte Sprache -> {self.cfg['target_lang']}.\n")
+            frames = int(RECORD_RATE * BLOCK_SECONDS)
+            with mic.recorder(samplerate=RECORD_RATE) as rec:
+                while not self.stop_event.is_set():
+                    block = to_mono(rec.record(numframes=frames))
+                    if self.on_level:
+                        self.on_level(rms(block))
+                    if self.pipeline.is_muted():
+                        self.segmenter.reset()
+                        continue
+                    segment = self.segmenter.feed(block)
+                    if segment is None:
+                        continue
+                    if self.jobs.full():
+                        self.jobs.get_nowait()  # zu viel Rückstau: ältestes Stück verwerfen
+                        self.log("   (Übersetzung hinkt hinterher, ein Stück übersprungen)")
+                    self.jobs.put(segment)
         except Exception as e:
-            print(f"   FEHLER: {explain_error(e)}")
+            self.log(f"FEHLER bei der Tonaufnahme: {e}")
+        finally:
+            self.stop_event.set()
 
 
-# ---------------------------------------------------------------- Modi
+# ---------------------------------------------------------------- Konsole
 
 def show_level(cfg):
     mic = find_input(cfg["source"], cfg["device"])
@@ -382,50 +530,20 @@ def show_level(cfg):
 
 
 def run(cfg):
-    missing = [k for k, v in (("OPENAI_API_KEY", cfg["openai_key"]),
-                              ("DEEPL_API_KEY", cfg["deepl_key"])) if not v]
+    engine = Engine(cfg)
+    missing = engine.missing_keys()
     if missing:
         print("Es fehlen API-Keys in der Datei .env: " + ", ".join(missing))
         print("Siehe README.md, Schritt 3.")
         return 1
-
-    pipeline = Pipeline(cfg)
-    jobs = queue.Queue(maxsize=4)
-    threading.Thread(target=worker, args=(pipeline, jobs), daemon=True).start()
-
-    segmenter = SpeechSegmenter(cfg["threshold"], cfg["silence"],
-                                cfg["min_speech"], cfg["max_speech"])
-    mic = find_input(cfg["source"], cfg["device"])
-    frames = int(RECORD_RATE * BLOCK_SECONDS)
-
-    if cfg["phone_view"]:
-        pipeline.phone = PhoneView(cfg["phone_port"])
-        try:
-            url = pipeline.phone.start()
-            print(f"Handy-Anzeige: {url}  (Handy muss im selben WLAN sein)")
-        except OSError as e:
-            pipeline.phone = None
-            print(f"Handy-Anzeige konnte nicht starten ({e}). Anderen PHONE_PORT in .env wählen.")
-
-    print(f"Höre auf: {mic.name}")
-    print(f"Übersetze automatisch erkannte Sprache -> {cfg['target_lang']}. "
-          f"Sprachausgabe: {'an' if cfg['speak'] else 'aus'}. Strg+C beendet.\n")
-
-    # Aufnahme bleibt im Hauptthread: soundcard braucht unter Windows die
-    # COM-Initialisierung des Threads, in dem das Gerät geöffnet wurde.
-    with mic.recorder(samplerate=RECORD_RATE) as rec:
-        while True:
-            block = to_mono(rec.record(numframes=frames))
-            if pipeline.is_muted():
-                segmenter.reset()
-                continue
-            segment = segmenter.feed(block)
-            if segment is None:
-                continue
-            if jobs.full():
-                jobs.get_nowait()  # zu viel Rückstau: ältestes Stück verwerfen
-                print("   (Übersetzung hinkt hinterher, ein Stück übersprungen)")
-            jobs.put(segment)
+    engine.start()
+    print(f"Sprachausgabe: {'an' if cfg['speak'] else 'aus'}. Strg+C beendet.")
+    try:
+        while engine.running():
+            time.sleep(0.2)
+    finally:
+        engine.stop()
+    return 1
 
 
 def main():
