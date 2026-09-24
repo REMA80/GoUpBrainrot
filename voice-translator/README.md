@@ -58,6 +58,36 @@ Funktioniert das, dann im Spiel ausprobieren.
 
 ---
 
+## Handy als zweiter Bildschirm (optional)
+
+Beim Start zeigt das Fenster eine Zeile wie
+`Handy-Anzeige: http://192.168.178.23:8765`.
+
+1. Handy mit **demselben WLAN** verbinden wie den PC (nicht mit dem Gäste-WLAN).
+2. Diese Adresse im Handy-Browser (z. B. Chrome) eintippen. Als Lesezeichen
+   speichern, dann musst du sie nur einmal tippen.
+3. Beim **ersten Start** fragt Windows eventuell per „Windows-Sicherheitswarnung“,
+   ob Python ins Netzwerk darf: **„Private Netzwerke“ erlauben**.
+
+Neue Übersetzungen erscheinen oben und sind blau umrandet.
+
+**Tipp gegen Rückkopplung:** Oben rechts auf der Handy-Seite **„Vorlesen: an“**
+tippen und in `.env` `SPEAK=0` setzen. Dann liest das Handy vor statt der PC.
+Der PC hört sich nicht mehr selbst, und du verpasst nichts, während vorgelesen wird.
+
+Wenn das Handy „keine Verbindung zum PC“ anzeigt:
+- Ist der PC-Übersetzer gestartet?
+- Sind beide Geräte im selben WLAN?
+- Ist das WLAN in Windows als **„Öffentlich“** eingestuft? Dann blockiert die
+  Firewall. Umstellen: Einstellungen → Netzwerk und Internet → WLAN → dein Netz
+  → Netzwerkprofil **„Privat“**.
+- Stimmt die Adresse? Sie kann sich ändern, wenn der Router dem PC eine neue gibt.
+
+Die Seite zeigt nur Übersetzungen an, keine Keys. Jeder in deinem WLAN, der die
+Adresse kennt, könnte sie aber mitlesen. Ausschalten: `PHONE_VIEW=0`.
+
+---
+
 ## Einstellungen (in `.env`)
 
 | Einstellung | Bedeutung |
@@ -69,6 +99,8 @@ Funktioniert das, dann im Spiel ausprobieren.
 | `TTS_RATE` | Sprechtempo −10 bis 10 |
 | `VOLUME_THRESHOLD` | Ab welcher Lautstärke „gesprochen“ wird (siehe unten) |
 | `SILENCE_SECONDS` | So lange Stille beendet einen Satz |
+| `PHONE_VIEW` | `1` = Handy-Anzeige an, `0` = aus |
+| `PHONE_PORT` | Port der Handy-Anzeige (Standard `8765`). Nur ändern, wenn beim Start ein Fehler kommt |
 
 ### Lautstärke-Schwelle einstellen
 **`pegel.bat`** doppelklicken. Du siehst live Zahlen. Lass jemanden reden

@@ -14,8 +14,10 @@ Hilfen: python translator.py --geraete   (Audiogeräte auflisten)
 """
 
 import io
+import json
 import os
 import queue
+import socket
 import subprocess
 import sys
 import threading
@@ -24,6 +26,8 @@ import warnings
 import wave
 from collections import deque
 from datetime import datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 
@@ -69,6 +73,8 @@ def load_config():
         "max_speech": num("MAX_SPEECH_SECONDS", "15"),
         "stt_model": os.getenv("STT_MODEL", "whisper-1").strip(),
         "tts_rate": int(num("TTS_RATE", "1")),
+        "phone_view": os.getenv("PHONE_VIEW", "1").strip() not in ("0", "nein", "no", "false"),
+        "phone_port": int(num("PHONE_PORT", "8765")),
     }
 
 
@@ -179,6 +185,75 @@ def to_wav_bytes(samples, rate):
     return buf.getvalue()
 
 
+# ---------------------------------------------------------------- Handy-Anzeige
+
+class PhoneView:
+    """Kleiner Webserver im Heimnetz: das Handy zeigt die Übersetzungen im Browser an."""
+
+    def __init__(self, port):
+        self.port = port
+        self.items = deque(maxlen=50)
+        self.next_id = 1
+        self.lock = threading.Lock()
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "phone.html"), "rb") as f:
+            self.page = f.read()
+
+    def add(self, source, original, translated, target):
+        with self.lock:
+            self.items.append({
+                "id": self.next_id, "time": datetime.now().strftime("%H:%M:%S"),
+                "source": source, "original": original,
+                "translated": translated, "target": target,
+            })
+            self.next_id += 1
+
+    def since(self, after):
+        with self.lock:
+            return [i for i in self.items if i["id"] > after]
+
+    def start(self):
+        view = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                url = urlparse(self.path)
+                if url.path == "/api":
+                    try:
+                        after = int(parse_qs(url.query).get("after", ["0"])[0])
+                    except ValueError:
+                        after = 0
+                    body, kind = json.dumps(view.since(after)).encode(), "application/json"
+                elif url.path == "/":
+                    body, kind = view.page, "text/html; charset=utf-8"
+                else:
+                    self.send_error(404)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", kind)
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass  # keine Zugriffs-Logs im Konsolenfenster
+
+        server = ThreadingHTTPServer(("0.0.0.0", self.port), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        return f"http://{lan_ip()}:{self.port}"
+
+
+def lan_ip():
+    # Verbindet nichts wirklich, fragt nur Windows, welche Netzwerkadresse ins Heimnetz zeigt.
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("10.255.255.255", 1))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
 # ---------------------------------------------------------------- Dienste
 
 def deepl_target(lang):
@@ -198,6 +273,7 @@ class Pipeline:
         self.target_base = cfg["target_lang"].split("-")[0]
         self.speaking = threading.Event()
         self.mute_until = 0.0
+        self.phone = None
 
     def transcribe(self, wav):
         result = self.openai.audio.transcriptions.create(
@@ -253,10 +329,14 @@ class Pipeline:
 
         if source.split("-")[0] == self.target_base:
             print(f"[{stamp}] ({source}) {text}")
+            if self.phone:
+                self.phone.add(source, text, None, self.target_base)
             return
 
         print(f"[{stamp}] {source}: {text}")
         print(f"         {self.target_base}: {translated}   ({took:.1f}s)")
+        if self.phone:
+            self.phone.add(source, text, translated, self.target_base)
         if self.cfg["speak"]:
             self.speak(translated)
 
@@ -317,6 +397,15 @@ def run(cfg):
                                 cfg["min_speech"], cfg["max_speech"])
     mic = find_input(cfg["source"], cfg["device"])
     frames = int(RECORD_RATE * BLOCK_SECONDS)
+
+    if cfg["phone_view"]:
+        pipeline.phone = PhoneView(cfg["phone_port"])
+        try:
+            url = pipeline.phone.start()
+            print(f"Handy-Anzeige: {url}  (Handy muss im selben WLAN sein)")
+        except OSError as e:
+            pipeline.phone = None
+            print(f"Handy-Anzeige konnte nicht starten ({e}). Anderen PHONE_PORT in .env wählen.")
 
     print(f"Höre auf: {mic.name}")
     print(f"Übersetze automatisch erkannte Sprache -> {cfg['target_lang']}. "
