@@ -1,2 +1,4 @@
-*.bat text eol=crlf
+# start.bat wird unverändert mit Windows-Zeilenenden (CRLF) gespeichert,
+# damit sie auch im ZIP-Download von GitHub korrekt ist.
+*.bat -text
 *.py text eol=lf
