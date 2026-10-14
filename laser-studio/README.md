@@ -129,5 +129,6 @@ werden, ohne die Berechnung zu ändern.
 - Stumpfe Verbindungen haben keine Steckverbindung. Die Kiste muss verleimt werden.
 - Die Anordnung auf der Platte ist einfach (zeilenweise, ohne Drehen) und nicht optimal.
 - Alles muss auf eine Platte passen, sonst erscheint eine Fehlermeldung.
-- `start.bat` wurde in der Entwicklungsumgebung (Linux) nicht ausgeführt.
-  Der Python-Teil wurde getestet, die Batchdatei selbst noch nicht unter Windows.
+- Unter Windows bestätigt: Start über `start.bat` mit Python 3.15.0
+  (installiert über den Python Install Manager 26.4). Andere Python-Versionen
+  wurden unter Windows nicht ausprobiert.
