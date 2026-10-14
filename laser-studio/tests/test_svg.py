@@ -12,13 +12,25 @@ BASE = dict(length=150, width=100, height=60, thickness=3, kerf=0.1, lid="offen"
             joint="stumpf", sheet_width=400, sheet_height=300, margin=5, gap=3)
 
 
+def parse_loops(d):
+    """Liest einen Pfad aus Unterpfaden 'M x y L x y ... Z' (nur M/L/Z erlaubt)."""
+    loops = []
+    for sub in d.split("M ")[1:]:
+        sub = sub.strip()
+        assert sub.endswith("Z"), f"Unterpfad nicht geschlossen: {sub[:40]}"
+        pts = [tuple(map(float, pt.split())) for pt in sub[:-1].split(" L ")]
+        for a, b in zip(pts, pts[1:] + pts[:1]):
+            assert a[0] == b[0] or a[1] == b[1], "Segment nicht achsparallel"
+        loops.append(pts)
+    return loops
+
+
 def rect_from_path(d):
-    """Liest einen Pfad der Form 'M x y H x2 V y2 H x Z' und prüft die Struktur."""
-    m = re.fullmatch(r"M (\S+) (\S+) H (\S+) V (\S+) H (\S+) Z", d)
-    assert m, f"unerwartete Pfadsyntax: {d}"
-    x, y, x2, y2, x3 = map(float, m.groups())
-    assert x3 == x, "Pfad kehrt nicht zum Startpunkt zurück"
-    return x, y, x2, y2
+    """Begrenzungsrechteck (x0, y0, x1, y1) eines Pfads."""
+    pts = [p for loop in parse_loops(d) for p in loop]
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return min(xs), min(ys), max(xs), max(ys)
 
 
 class SvgExportTest(unittest.TestCase):

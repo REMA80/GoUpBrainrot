@@ -32,13 +32,27 @@ def rect_path(x: float, y: float, w: float, h: float) -> str:
     return f"M {fmt(x)} {fmt(y)} H {fmt(x + w)} V {fmt(y + h)} H {fmt(x)} Z"
 
 
+def loops_path(loops: list[list[tuple[float, float]]], dx: float, dy: float) -> str:
+    """Pfad aus geschlossenen Konturen (Koordinaten bereits mit y nach unten)."""
+    parts = []
+    for loop in loops:
+        pts = [f"{fmt(x + dx)} {fmt(y + dy)}" for x, y in loop]
+        parts.append("M " + " L ".join(pts) + " Z")
+    return " ".join(parts)
+
+
 def build_svg(
     placed: list[PlacedItem],
     sheet: SheetParams,
     title: str,
     description: str,
     preview: bool = False,
+    shapes: dict[str, list[list[tuple[float, float]]]] | None = None,
 ) -> str:
+    """``shapes``: Konturen je Bauteil relativ zur linken oberen Ecke des
+    Begrenzungsrechtecks (y nach unten). Fehlt ein Eintrag, wird das
+    Begrenzungsrechteck gezeichnet."""
+    shapes = shapes or {}
     w, h = fmt(sheet.width), fmt(sheet.height)
     lines = [
         '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
@@ -62,7 +76,7 @@ def build_svg(
     )
     for p in placed:
         lines.append(
-            f"    <path id={quoteattr('teil-' + p.key)} d=\"{rect_path(p.x, p.y, p.width, p.height)}\">"
+            f"    <path id={quoteattr('teil-' + p.key)} d=\"{_path_for(p, shapes)}\">"
             f"<title>{escape(p.name)}</title></path>"
         )
     lines.append("  </g>")
@@ -78,3 +92,10 @@ def build_svg(
         lines.append("  </g>")
     lines.append("</svg>")
     return "\n".join(lines) + "\n"
+
+
+def _path_for(p: PlacedItem, shapes: dict) -> str:
+    loops = shapes.get(p.key)
+    if loops is None:
+        return rect_path(p.x, p.y, p.width, p.height)
+    return loops_path(loops, p.x, p.y)

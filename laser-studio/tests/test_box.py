@@ -50,7 +50,7 @@ class BoxGeometryTest(unittest.TestCase):
     def test_outer_bounding_box_matches_input(self):
         for lid in LID_TYPES:
             d = build_box(BoxParams(210, 130, 75, 4, 0.1, lid))
-            boxes = [p.placement for p in d.panels]
+            boxes = [b for p in d.panels for b in p.boxes]
             self.assertAlmostEqual(min(b.x0 for b in boxes), 0)
             self.assertAlmostEqual(max(b.x1 for b in boxes), 210)
             self.assertAlmostEqual(max(b.y1 for b in boxes), 130)
@@ -80,7 +80,7 @@ class BoxGeometryTest(unittest.TestCase):
             dict(length=float("nan"), width=100, height=60, thickness=3),
             dict(length=True, width=100, height=60, thickness=3),
             dict(length=150, width=100, height=60, thickness=3, lid="schiebedeckel"),
-            dict(length=150, width=100, height=60, thickness=3, joint="fingerzinken"),
+            dict(length=150, width=100, height=60, thickness=3, joint="schwalbenschwanz"),
             dict(width=100, height=60, thickness=3),
         ]
         for data in bad:

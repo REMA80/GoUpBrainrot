@@ -5,4 +5,4 @@ Die Module sind bewusst unabhängig von der Benutzeroberfläche gehalten
 verwendet werden können.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

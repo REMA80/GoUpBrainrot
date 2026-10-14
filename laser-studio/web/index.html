@@ -27,13 +27,14 @@
     <main>
       <section id="view-start" class="view">
         <h2>Willkommen</h2>
-        <p>Dies ist <strong>Phase 1</strong> der Software. Funktionsfähig sind:</p>
+        <p>Stand: <strong>Phase 4 in Arbeit</strong>. Funktionsfähig sind:</p>
         <ul>
-          <li>Kistenkonstrukteur mit stumpfen Verbindungen (offen, Deckel eingesetzt, Deckel aufgelegt)</li>
-          <li>Rechnerische Prüfung der Konstruktion (Maße, Innenmaße, lückenloses Zusammenpassen)</li>
-          <li>Kerf-Ausgleich für die Außenkonturen</li>
+          <li>Kistenkonstrukteur mit stumpfen Verbindungen und <strong>Fingerzinken</strong></li>
+          <li>Deckel: offen, wie Boden (geschlossene Kiste) oder aufgelegt</li>
+          <li>Rechnerische Prüfung der Konstruktion (Maße, Innenmaße, lückenloses Ineinandergreifen)</li>
+          <li>Kerf-Ausgleich und einstellbares Spiel für die Zinken</li>
           <li>Einfache Anordnung der Teile auf einer Platte (nicht optimiert)</li>
-          <li>SVG-Export in Millimetern für xTool Creative Space und andere Laserprogramme</li>
+          <li>SVG-Export in Millimetern (Import in xTool Creative Space bestätigt)</li>
         </ul>
         <p class="note">Alle übrigen Bereiche sind gekennzeichnet und noch <strong>nicht</strong> umgesetzt.</p>
         <p class="note">Wichtig: Die Ergebnisse sind automatisch berechnet und getestet, aber noch nicht an einem echten Laser
@@ -59,11 +60,20 @@
             </fieldset>
             <fieldset>
               <legend>Bauart</legend>
-              <label>Verbindung<select name="joint"><option value="stumpf">Stumpfe Verbindung (verleimen)</option></select></label>
-              <p class="hint">Fingerzinken, Steckverbindungen und Schiebedeckel folgen in Phase 4.</p>
+              <label>Verbindung<select name="joint">
+                <option value="stumpf">Stumpfe Verbindung (verleimen)</option>
+                <option value="fingerzinken">Fingerzinken</option>
+              </select></label>
+              <div id="finger-fields" class="hidden">
+                <label>Zinkenbreite, Zielwert (mm)<input name="finger_width" type="number" step="0.5" value="9"></label>
+                <p class="hint">Jede Kante wird in eine ungerade Zahl gleich breiter Zinken geteilt. Die tatsächliche Breite steht rechts in der Tabelle.</p>
+                <label>Spiel je Zinke (mm)<input name="clearance" type="number" step="0.01" value="0"></label>
+                <p class="hint">Zusätzliche Luft zwischen Zinke und Schlitz. Mit 0 beginnen und per Testschnitt anpassen. Zu locker? Spiel 0 lassen und den Kerf etwas erhöhen.</p>
+              </div>
+              <p class="hint">Schiebedeckel und Innenfächer folgen in Phase 4.</p>
               <label>Deckel<select name="lid">
                 <option value="offen">Offen (ohne Deckel)</option>
-                <option value="eingesetzt">Deckel eingesetzt (wie Boden)</option>
+                <option value="eingesetzt">Deckel wie Boden (geschlossene Kiste)</option>
                 <option value="aufgelegt">Deckel aufgelegt (volle Außenmaße)</option>
               </select></label>
             </fieldset>
@@ -83,6 +93,13 @@
             <div id="summary" class="hidden">
               <h3>Innenmaße</h3>
               <p id="inner"></p>
+              <div id="edges-block" class="hidden">
+                <h3>Zinken je Kante</h3>
+                <table>
+                  <thead><tr><th>Kante</th><th>Länge (mm)</th><th>Zinken-Abschnitte</th><th>Breite je Abschnitt (mm)</th></tr></thead>
+                  <tbody id="edges"></tbody>
+                </table>
+              </div>
               <h3>Bauteile</h3>
               <table>
                 <thead><tr><th>Teil</th><th>Nennmaß (mm)</th><th>Schnittlinie inkl. Kerf (mm)</th></tr></thead>

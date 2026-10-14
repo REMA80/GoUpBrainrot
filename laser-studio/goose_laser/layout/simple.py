@@ -108,6 +108,10 @@ def parse_sheet(data: dict) -> SheetParams:
     )
 
 
+def _mm(value: float) -> str:
+    return f"{value:.1f}".replace(".", ",")
+
+
 def shelf_layout(items: list[Item], sheet: SheetParams) -> list[PlacedItem]:
     usable_w = sheet.width - 2 * sheet.margin
     usable_h = sheet.height - 2 * sheet.margin
@@ -117,8 +121,8 @@ def shelf_layout(items: list[Item], sheet: SheetParams) -> list[PlacedItem]:
             errors.append(
                 {
                     "field": "sheet_width",
-                    "message": f"{it.name} ({it.width:.1f} × {it.height:.1f} mm) passt nicht "
-                    f"auf die nutzbare Fläche ({usable_w:.1f} × {usable_h:.1f} mm).",
+                    "message": f"{it.name} ({_mm(it.width)} × {_mm(it.height)} mm) passt nicht "
+                    f"auf die nutzbare Fläche ({_mm(usable_w)} × {_mm(usable_h)} mm).",
                 }
             )
     if errors:

@@ -3,23 +3,26 @@
 Lokale Windows-Software zum Konstruieren von Laser-Holzkisten mit SVG-Export
 (später ergänzt um KI-Motivgenerator, Zuschnittplan und Motivplatzierung).
 
-**Stand: Phase 1, Version 0.1.0**
+**Stand: Phase 4 in Arbeit (Fingerzinken fertig), Version 0.2.0**
 
-## Was funktioniert (Phase 1)
+## Was funktioniert
 
 | Funktion | Stand |
 |---|---|
 | Kiste mit stumpfen Verbindungen (verleimen) | ✅ umgesetzt, automatisch getestet |
-| Deckel: offen / eingesetzt / aufgelegt | ✅ umgesetzt, automatisch getestet |
+| Kiste mit **Fingerzinken** (Zinkenbreite, Spiel einstellbar) | ✅ umgesetzt, automatisch getestet |
+| Deckel: offen / wie Boden (geschlossen) / aufgelegt | ✅ umgesetzt, automatisch getestet |
 | Außen- und Innenmaße, Materialstärke | ✅ umgesetzt, automatisch getestet |
-| Kerf-Ausgleich (Außenkontur um Kerf/2 nach außen) | ✅ umgesetzt, automatisch getestet |
+| Kerf-Ausgleich (Kontur um Kerf/2 nach außen, auch an jeder Zinke) | ✅ umgesetzt, automatisch getestet |
 | Prüfung unmöglicher Eingaben, kein Export bei Fehlern | ✅ umgesetzt, automatisch getestet |
 | Einfache Reihenanordnung auf einer Platte | ✅ umgesetzt, **nicht optimiert** |
 | SVG-Export in mm | ✅ umgesetzt, automatisch getestet |
 | 2D-Vorschau der Platte | ✅ umgesetzt |
+| Start unter Windows (Python 3.15.0) | ✅ vom Anwender bestätigt |
+| Import in xTool Creative Space (stumpfe Verbindung) | ✅ vom Anwender bestätigt |
+| Import in xTool Creative Space (Fingerzinken) | ❌ **noch nicht ausprobiert** |
 | Probe an einem echten Laser | ❌ **noch nicht erfolgt** |
-| Import in xTool Creative Space | ❌ **noch nicht ausprobiert** |
-| Fingerzinken, Schiebedeckel, Fächer, 3D-Vorschau | geplant (Phase 4) |
+| Schiebedeckel, Innenfächer, 3D-Vorschau | geplant (Phase 4) |
 | Optimierter Zuschnittplan, mehrere Platten, Drehen | geplant (Phase 5) |
 | KI-Motivgenerator, Vektorisierung | geplant (Phase 6) |
 | Projekte speichern, Materialprofile, PNG/DXF | geplant (spätere Phasen) |
@@ -64,16 +67,45 @@ nächsten freien (8766, 8767, …). Die verwendete Adresse steht im schwarzen Fe
 
 ## Konstruktionsregeln
 
+**Stumpfe Verbindung**
 - Vorder- und Rückwand: volle Außenlänge.
 - Seitenwände: zwischen Vorder- und Rückwand (Außenbreite − 2 × Stärke).
 - Boden: zwischen allen vier Wänden eingesetzt.
-- Deckel *eingesetzt*: wie der Boden, oben zwischen den Wänden.
+- Deckel *wie Boden*: oben zwischen den Wänden.
 - Deckel *aufgelegt*: volle Außenmaße, liegt auf den Wänden (Wände = Höhe − Stärke).
-- Innenhöhe: offen = H − t, mit Deckel = H − 2t.
 
-Bei jeder Berechnung wird geprüft, dass alle Teile innerhalb der Außenmaße
-liegen, keines in den Innenraum ragt, sich keine zwei Teile überschneiden
-und die Teile die Kistenwand **lückenlos** ausfüllen (Volumenvergleich).
+**Fingerzinken**
+- Alle Wände, Boden und (geschlossener) Deckel haben volle Außenmaße.
+- Jede Kante wird in eine **ungerade** Zahl gleich breiter Abschnitte geteilt
+  (mindestens 3, höchstens 301). Die eingegebene Zinkenbreite ist ein
+  Zielwert: Es wird die größte ungerade Anzahl gewählt, bei der jeder
+  Abschnitt mindestens so breit ist. Die tatsächliche Breite steht in der
+  Tabelle „Zinken je Kante“.
+- Senkrechte Ecken: Vorder-/Rückwand besitzen die Endabschnitte.
+- Boden-/Deckelkanten: Die Wände besitzen die Endabschnitte. Boden und Deckel
+  greifen mit ihren Zinken in die Wände.
+- Die Eckwürfel gehören zu Vorder- bzw. Rückwand.
+- Zinkentiefe = eingegebene Materialstärke. Deshalb die tatsächliche Stärke messen.
+- **Spiel:** Jede Zinke wird an ihren inneren Flanken schmaler, sodass
+  zwischen Zinke und Schlitz insgesamt die eingestellte Luft bleibt. Für
+  einen strammeren Sitz das Spiel auf 0 lassen und den Kerf etwas erhöhen.
+- **Kerf:** Die gesamte Kontur wird um Kerf/2 nach außen versetzt. Dadurch
+  werden die Zinken breiter und die Schlitze schmaler, und nach dem Schnitt
+  stimmen beide mit dem Nennmaß überein.
+- Deckel *aufgelegt* ist ein loser Deckel ohne Zinken.
+
+**Innenhöhe:** offen = H − t, mit Deckel = H − 2t.
+
+**Prüfungen bei jeder Berechnung:**
+- Jedes Teil wird als Satz von 3D-Quadern gebaut. Geprüft wird, dass alle
+  innerhalb der Außenmaße liegen, keiner in den Innenraum ragt, sich keine
+  zwei überschneiden und die Teile die Kistenwand **lückenlos** ausfüllen
+  (Volumenvergleich, abzüglich des eingestellten Spiels).
+- Zusätzlich ein Test, der unabhängig davon die fertigen 2D-Umrisse an vielen
+  Punkten entlang jeder Kante abtastet: Genau ein Teil hat dort Material.
+- Jedes Teil muss eine einzige geschlossene Kontur sein.
+- Nach dem Kerf-Versatz darf sich keine Kontur selbst schneiden oder
+  berühren, z. B. weil ein Schlitz schmaler als die Schnittfuge ist.
 
 ## SVG-Format
 
@@ -95,8 +127,10 @@ Im Ordner `laser-studio`:
 py -3 -m unittest discover -s tests -t .
 ```
 
-Getestet werden: Kombinationen aus 4 Außenmaßen × 4 Materialstärken × 4 Kerf-Werten
-× 3 Deckeltypen, Innenmaße, Teilmaße, Ablehnung unmöglicher Eingaben,
+Getestet werden: stumpfe Verbindung mit 4 Außenmaßen × 4 Materialstärken × 4 Kerf-Werten
+× 3 Deckeltypen; Fingerzinken mit 288 Kombinationen aus Maßen, Stärken, Kerf,
+Deckel, Spiel und Zinkenbreite; Ineinandergreifen der 2D-Umrisse; Zinken- und
+Schlitzbreiten nach Kerf; Innenmaße, Teilmaße, Ablehnung unmöglicher Eingaben,
 überschneidungsfreie Anordnung, SVG-Einheiten und Parsebarkeit (XML-Parser),
 geschlossene Pfade, Übereinstimmung der SVG-Rechtecke mit den Schnittmaßen
 sowie die Server-Schnittstelle (inkl. Ablehnung des Exports bei Fehlern).
@@ -111,6 +145,7 @@ laser-studio/
   run.py                 Startet den lokalen Server und öffnet den Browser
   goose_laser/
     geometry/box.py      Kistenkonstruktion und Prüfung (reine Berechnung)
+    geometry/outline.py  Umrisse aus Rechtecken, Kerf-Versatz, Überschneidungsprüfung
     layout/simple.py     Einfache Anordnung auf der Platte und Überschneidungsprüfung
     export/svg.py        SVG-Erzeugung
     service.py           Ablauf Eingabe → Konstruktion → Anordnung → SVG
@@ -127,6 +162,8 @@ werden, ohne die Berechnung zu ändern.
 ## Bekannte Einschränkungen
 
 - Stumpfe Verbindungen haben keine Steckverbindung. Die Kiste muss verleimt werden.
+- Fingerzinken sind rechnerisch geprüft, aber noch nicht am Laser geschnitten.
+  Wie stramm sie sitzen, zeigt erst ein Probeschnitt.
 - Die Anordnung auf der Platte ist einfach (zeilenweise, ohne Drehen) und nicht optimal.
 - Alles muss auf eine Platte passen, sonst erscheint eine Fehlermeldung.
 - Unter Windows bestätigt: Start über `start.bat` mit Python 3.15.0

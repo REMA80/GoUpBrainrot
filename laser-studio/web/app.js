@@ -27,8 +27,10 @@ document.querySelectorAll("[data-goto]").forEach((b) =>
 // ---- Formular ---------------------------------------------------------
 function formData() {
   const data = {};
+  const finger = form.elements.joint.value === "fingerzinken";
   for (const el of form.elements) {
     if (!el.name) continue;
+    if (!finger && (el.name === "finger_width" || el.name === "clearance")) continue;
     data[el.name] = el.type === "number" ? el.value.trim() : el.value;
   }
   return data;
@@ -58,6 +60,18 @@ function showErrors(errors) {
 function renderResult(r) {
   $("#inner").textContent =
     `Länge ${fmt(r.inner.length)} mm × Breite ${fmt(r.inner.width)} mm × Höhe ${fmt(r.inner.height)} mm`;
+  const edges = $("#edges");
+  edges.innerHTML = "";
+  for (const e of r.edges) {
+    const tr = document.createElement("tr");
+    for (const text of [e.name, fmt(e.length), String(e.segments), fmt(e.segment_width)]) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      tr.appendChild(td);
+    }
+    edges.appendChild(tr);
+  }
+  $("#edges-block").classList.toggle("hidden", r.edges.length === 0);
   const tbody = $("#parts");
   tbody.innerHTML = "";
   for (const p of r.panels) {
@@ -108,7 +122,8 @@ async function calculate() {
   }
   showErrors([]);
   renderResult(body.result);
-  setStatus("Konstruktion rechnerisch geprüft: Teile passen lückenlos und ohne Überschneidung zusammen.", "ok");
+  const what = body.result.params.joint === "fingerzinken" ? "Zinken greifen" : "Teile passen";
+  setStatus(`Konstruktion rechnerisch geprüft: ${what} lückenlos und ohne Überschneidung ineinander.`, "ok");
   exportBtn.disabled = false;
 }
 
@@ -124,6 +139,12 @@ function scheduleCalculate(delay = 300) {
   exportBtn.disabled = true;
   debounceTimer = setTimeout(calculate, delay);
 }
+
+function updateJointFields() {
+  $("#finger-fields").classList.toggle("hidden", form.elements.joint.value !== "fingerzinken");
+}
+form.elements.joint.addEventListener("change", updateJointFields);
+updateJointFields();
 
 form.addEventListener("input", () => scheduleCalculate());
 form.addEventListener("change", () => scheduleCalculate());
@@ -166,5 +187,5 @@ exportBtn.addEventListener("click", async () => {
 // ---- Start ------------------------------------------------------------
 fetch("/api/info")
   .then((r) => r.json())
-  .then((info) => { $("#version").textContent = `Version ${info.version} · Phase 1`; })
+  .then((info) => { $("#version").textContent = `Version ${info.version} · Phase 4 (in Arbeit)`; })
   .catch(() => {});
