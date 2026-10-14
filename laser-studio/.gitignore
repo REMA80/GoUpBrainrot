@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+logs/
+.venv/
+# Lokale Einstellungen / spätere API-Schlüssel niemals versionieren
+config.local.json
+.env
