@@ -4,6 +4,16 @@ REM Benoetigt Python 3.10 oder neuer (https://www.python.org/downloads/).
 chcp 65001 >nul
 cd /d "%~dp0"
 
+if not exist "run.py" (
+    echo Die Datei run.py wurde nicht gefunden.
+    echo start.bat liegt in: %~dp0
+    echo.
+    echo start.bat funktioniert nur im Ordner "laser-studio" zusammen mit den
+    echo uebrigen Dateien. Bitte das komplette ZIP von GitHub entpacken und
+    echo start.bat im Ordner "laser-studio" doppelklicken.
+    goto ende
+)
+
 where py >nul 2>nul
 if %errorlevel%==0 (
     py -3 run.py %*
