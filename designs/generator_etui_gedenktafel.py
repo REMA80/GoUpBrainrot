@@ -133,17 +133,23 @@ def geld_etui(variant):
     x_back, x_h0, x_h1, x_front = m, m + PW, m + PW + HW, m + PW + HW
     outer = rrect(m, m, m + 2 * PW + HW, m + PH, R)
     cut_lines = []
-    # Biegescharnier: versetzte Schlitze, Abstand 1.5 mm, Steg 3 mm, Rand 4 mm
-    sp, L, b, edge = 1.5, 20.0, 3.0, 4.0
-    ncol = int(HW / sp)
+    # Biegescharnier: gerade Spalten geschlossen (Steg am Rand), ungerade Spalten zum Rand hin offen,
+    # damit kein durchgehender Holzstreifen quer ueber das Scharnier bleibt.
+    sp, b, nsl = 1.5, 3.0, 6
+    L = (PH - (nsl + 1) * b) / nsl
+    p = L + b
+    ncol = int(round(HW / sp))
     for c in range(ncol + 1):
         x = x_h0 + c * sp
-        off = 0 if c % 2 == 0 else (L + b) / 2
-        y = m + edge - off
-        while y < m + PH - edge:
-            y0, y1 = max(y, m + edge), min(y + L, m + PH - edge)
-            if y1 - y0 > 3: cut_lines.append([(x, y0), (x, y1)])
-            y += L + b
+        if c % 2 == 0:
+            for k in range(nsl):
+                y0 = m + b + k * p
+                cut_lines.append([(x, y0), (x, y0 + L)])
+        else:
+            bridges = [m + b / 2 + (k + 0.5) * p for k in range(nsl)]
+            edges = [m - 0.5] + [y for bc in bridges for y in (bc - b / 2, bc + b / 2)] + [m + PH + 0.5]
+            for i in range(0, len(edges), 2):
+                cut_lines.append([(x, edges[i]), (x, edges[i + 1])])
     # Eckenhalter fuer gefalteten Schein (Rueckseite innen), Feld 72 x 79 mm
     cx_b, cy_b = x_back + PW / 2, m + PH / 2
     fw, fh, sl = 72.0, 79.0, 12.0
