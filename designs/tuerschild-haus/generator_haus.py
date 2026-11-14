@@ -68,6 +68,23 @@ def house_D():
     heart_line = LineString(hp).buffer(LW / 2, cap_style="round", join_style="round", quad_segs=16)
     return unary_union([house, heart_line]), []
 
+def house_E():
+    # Doppelhaus: grosser und kleiner Giebel in einer Linie
+    big = stroke([(16, 262), (16, 118), (52, 70), (88, 118), (88, 134)])
+    small = stroke([(88, 126), (108, 100), (128, 126), (128, 140)])
+    return unary_union([big, small]), []
+def house_F():
+    # Haus mit Schornstein, Rauch steigt als Welle auf und endet in einem Herz
+    k = 60 / 54
+    house = stroke([(18, 262), (18, 112), (70, 52), (92, 52 + 24 * k), (92, 64), (104, 64), (104, 52 + 36 * k), (122, 112), (122, 130)])
+    smoke = [(98 + 3.2 * math.sin(i / 20 * 2 * math.pi), 64 - i * 26 / 40) for i in range(41)]
+    smoke_line = LineString(smoke).buffer(3.6 / 2, cap_style="round", join_style="round", quad_segs=16)
+    cx, cy, sz = 98, 31, 14
+    hp = [(cx + 16 * math.sin(t) ** 3 * sz / 32,
+           cy - (13 * math.cos(t) - 5 * math.cos(2*t) - 2 * math.cos(3*t) - math.cos(4*t)) * sz / 32)
+          for t in [2 * math.pi * i / 160 for i in range(160)]]
+    return unary_union([house, smoke_line, Polygon(hp)]), []
+
 ghost = [("Herzlich", 46, 140, 14, "start"), ("Willkommen", 54, 164, 14, "start"),
          ("Anna", 122, 200, 10, "end"), ("Lukas", 122, 216, 10, "end"), ("Sophie", 122, 232, 10, "end"), ("Max", 122, 248, 10, "end")]
 
@@ -90,10 +107,10 @@ def svg(path, cut, engr=(), house=None, prev=False):
 
 import sys
 NUR_HAUS = "--nur-haus" in sys.argv
-VARIANTEN = (("C_tuer", house_C), ("D_herz", house_D)) if NUR_HAUS else (("A_schornstein", house_A), ("B_dachueberstand", house_B))
+VARIANTEN = (("E_doppelhaus", house_E), ("F_rauchherz", house_F)) if NUR_HAUS else (("A_schornstein", house_A), ("B_dachueberstand", house_B))
 if NUR_HAUS:
-    ghost = [("Herzlich", 40, 138, 13.5, "start"), ("Willkommen", 46, 160, 13.5, "start"),
-             ("Anna", 110, 186, 9, "end"), ("Lukas", 110, 200, 9, "end"), ("Sophie", 110, 214, 9, "end"), ("Max", 110, 228, 9, "end")]
+    ghost = [("Herzlich", 40, 160, 13.5, "start"), ("Willkommen", 46, 182, 13.5, "start"),
+             ("Anna", 112, 206, 9, "end"), ("Lukas", 112, 220, 9, "end"), ("Sophie", 112, 234, 9, "end"), ("Max", 112, 248, 9, "end")]
 for tag, fn in VARIANTEN:
     h, eng = fn()
     svg(f"{OUT}/haus_{tag}_ausschneiden.svg", paths(h))
