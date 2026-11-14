@@ -99,11 +99,16 @@ def svg(path, W, H, cut, engr, prev=False, appl=None):
 path_fn, ww, wh, thin = willkommen(WK_W, WK_MIN)
 m = 5.0
 # 1) Holzplatte: Kontur, 4 Loecher fuer Draht, Gravur
-plate = f"M{m},{m} H{m + BW} V{m + BH} H{m} Z"
+# Platte = waagrechtes Band (Hoehe BH) aus einem Kreis mit Durchmesser BW (Ring): links und rechts rund
+R = BW / 2; pcx, pcy = m + R, m + BH / 2
+hx = (R * R - (BH / 2) ** 2) ** 0.5
+plate = (f"M{pcx - hx:.3f},{m} H{pcx + hx:.3f} A{R},{R} 0 0,1 {pcx + hx:.3f},{m + BH} "
+         f"H{pcx - hx:.3f} A{R},{R} 0 0,1 {pcx - hx:.3f},{m} Z")
 holes = []
-for hx, hy in [(6, 6), (BW - 6, 6), (6, BH - 6), (BW - 6, BH - 6)]:
-    cx, cy, r = m + hx, m + hy, 1.25
-    holes.append(f"M{cx - r:.3f},{cy} a{r},{r} 0 1,0 {2 * r},0 a{r},{r} 0 1,0 {-2 * r},0 Z")
+for sx in (-1, 1):
+    for dy in (-60.0, 60.0):
+        cx, cy, r = pcx + sx * ((R - 6) ** 2 - dy ** 2) ** 0.5, pcy + dy, 1.25
+        holes.append(f"M{cx - r:.3f},{cy:.3f} a{r},{r} 0 1,0 {2 * r},0 a{r},{r} 0 1,0 {-2 * r},0 Z")
 herz, hw = text(INTER, "Herzlich", m + 18, m + 40, 22)
 wk_cx = m + WK_X + ww * 0.58
 bei, _ = text(INTER, "bei", wk_cx, m + WK_TOP + wh + 14, 9, "middle")
