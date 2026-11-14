@@ -52,6 +52,22 @@ def house_B():
     walls = unary_union([stroke([(20, 262), (20, yl)]), stroke([(120, yr), (120, 135)])])
     return unary_union([roof, walls]), [heart(70, 86, 12)]
 
+def house_C():
+    # geschlossenes Haus mit Rundbogen-Tuer in der Grundlinie
+    door = [(84, 262), (84, 238)] + [(72 + 12 * math.cos(math.radians(a)), 238 - 12 * math.sin(math.radians(a))) for a in range(0, 181, 6)] + [(60, 262)]
+    pts = [(18, 262), (18, 112), (70, 52), (122, 112), (122, 262)] + door + [(18, 262)]
+    return stroke(pts), []
+def house_D():
+    # Haus, rechte Wand endet in einem Herz
+    cx, cy, s = 122, 126, 20
+    hp = [(cx + 16 * math.sin(t) ** 3 * s / 32,
+           cy - (13 * math.cos(t) - 5 * math.cos(2*t) - 2 * math.cos(3*t) - math.cos(4*t)) * s / 32)
+          for t in [2 * math.pi * i / 160 for i in range(161)]]
+    cusp = hp[0]
+    house = stroke([(18, 262), (18, 112), (70, 52), (122, 112), cusp])
+    heart_line = LineString(hp).buffer(LW / 2, cap_style="round", join_style="round", quad_segs=16)
+    return unary_union([house, heart_line]), []
+
 ghost = [("Herzlich", 46, 140, 14, "start"), ("Willkommen", 54, 164, 14, "start"),
          ("Anna", 122, 200, 10, "end"), ("Lukas", 122, 216, 10, "end"), ("Sophie", 122, 232, 10, "end"), ("Max", 122, 248, 10, "end")]
 
@@ -72,11 +88,18 @@ def svg(path, cut, engr=(), house=None, prev=False):
     s.append(f'  <g id="schneiden" fill="none" stroke="#FF0000" stroke-width="{0.35 if prev else 0.1}">' + "".join(f'<path d="{d}"/>' for d in cut) + "</g>")
     s.append("</svg>"); open(path, "w").write("\n".join(s))
 
-for tag, fn in (("A_schornstein", house_A), ("B_dachueberstand", house_B)):
+import sys
+NUR_HAUS = "--nur-haus" in sys.argv
+VARIANTEN = (("C_tuer", house_C), ("D_herz", house_D)) if NUR_HAUS else (("A_schornstein", house_A), ("B_dachueberstand", house_B))
+if NUR_HAUS:
+    ghost = [("Herzlich", 40, 138, 13.5, "start"), ("Willkommen", 46, 160, 13.5, "start"),
+             ("Anna", 110, 186, 9, "end"), ("Lukas", 110, 200, 9, "end"), ("Sophie", 110, 214, 9, "end"), ("Max", 110, 228, 9, "end")]
+for tag, fn in VARIANTEN:
     h, eng = fn()
-    svg(f"{OUT}/platte_{tag}.svg", [plate] + holes, eng)
     svg(f"{OUT}/haus_{tag}_ausschneiden.svg", paths(h))
-    svg(f"{OUT}/klebeschablone_{tag}.svg", [plate] + paths(h))
+    if not NUR_HAUS:
+        svg(f"{OUT}/platte_{tag}.svg", [plate] + holes, eng)
+        svg(f"{OUT}/klebeschablone_{tag}.svg", [plate] + paths(h))
     svg(f"{SCR}/prev_haus_{tag}.svg", [plate] + holes, eng, h, prev=True)
     minx, miny, maxx, maxy = h.bounds
     print(tag, f"Haus {maxx - minx:.0f} x {maxy - miny:.0f} mm, Teile: {len(getattr(h, 'geoms', [h]))}")
