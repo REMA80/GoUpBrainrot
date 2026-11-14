@@ -12,6 +12,7 @@ BW, BH = 293.0, 150.0          # Holzplatte
 WK_W, WK_MIN = float(sys.argv[1]) if len(sys.argv) > 1 else 200.0, float(sys.argv[2]) if len(sys.argv) > 2 else 2.2
 WK_X, WK_TOP = 95.0, 44.0      # Lage des Schriftzugs (links, oben) auf der Platte, y nach unten
 NAME = "Familie Muster"
+BRIDGE = False                 # Schriftzug wird aufgeklebt: keine Verbindungsstege noetig
 
 # ---------- Schriftzug Willkommen verdicken + vektorisieren ----------
 def willkommen(width_mm, min_mm):
@@ -25,7 +26,7 @@ def willkommen(width_mm, min_mm):
     r = max(0, int(round(min_mm / 2 / mmpx - thin_half)))
     g = cv2.dilate(bw, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * r + 1, 2 * r + 1)))
     bridge_w = max(3, int(round(min_mm * 1.1 / mmpx)))
-    while True:
+    while BRIDGE:
         n, lab = cv2.connectedComponents(g, connectivity=8)
         if n <= 2: break
         sizes = [(lab == i).sum() for i in range(1, n)]
@@ -63,6 +64,9 @@ def willkommen(width_mm, min_mm):
     dd = cv2.distanceTransform(g.astype(np.uint8), cv2.DIST_L2, 5)
     sk = dd[(dd > 0) & (cv2.dilate(dd, np.ones((3, 3))) == dd)]
     W = (xs.max() - gx0) * mmpx; H = (ys.max() - gy0) * mmpx
+    n, lab, st, _ = cv2.connectedComponentsWithStats(g.astype(np.uint8), connectivity=8)
+    parts = sorted([(st[i][4] * mmpx ** 2, st[i][2] * mmpx, st[i][3] * mmpx) for i in range(1, n)], reverse=True)
+    print("Einzelteile (Flaeche mm2, Breite x Hoehe mm):", [(round(a), round(w), round(h)) for a, w, h in parts])
     return path, W, H, 2 * np.percentile(sk, 2) * mmpx
 
 # ---------- Text als Pfad ----------
